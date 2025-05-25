@@ -4,6 +4,7 @@ import { useConfig } from "@/contexts/ConfigContext";
 type MDBList = {
   id: number;
   name: string;
+  mediatype: "movie" | "show";
 };
 
 export const MDBListSelection = () => {
@@ -50,23 +51,33 @@ export const MDBListSelection = () => {
 
   if (availableLists.length === 0) return <p>Geen persoonlijke lijsten gevonden.</p>;
 
-  return (
-    <div>
-      <h3>Kies welke MDBList lijsten je wil gebruiken:</h3>
-      <ul>
-        {availableLists.map(({ id, name }) => (
-          <li key={id}>
-            <label>
-              <input
-                type="checkbox"
-                checked={mdblistSelectedLists.includes(id)}
-                onChange={() => toggleList(id)}
-              />{" "}
-              {name}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
+return (
+  <div>
+    <h3>Kies welke MDBList lijsten je wil gebruiken:</h3>
+
+    {["movie", "show"].map((type) => {
+      const lists = availableLists.filter((list) => list.mediatype === type);
+      if (lists.length === 0) return null;
+
+      return (
+        <div key={type}>
+          <h4>{type === "movie" ? "Films" : "Series"}</h4>
+          <ul>
+            {lists.map(({ id, name }) => (
+              <li key={id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={mdblistSelectedLists.includes(id)}
+                    onChange={() => toggleList(id)}
+                  />{" "}
+                  {name}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    })}
+  </div>
+);
