@@ -21,6 +21,7 @@ export default function MDBList() {
     setMdblistkey,
     mdblistSelectedLists,
     setMdblistSelectedLists,
+    setMdblistLists,      // toegevoegd hier
   } = useConfig();
 
   const [inputToken, setInputToken] = useState(mdblistkey || "");
@@ -39,12 +40,15 @@ export default function MDBList() {
       if (!Array.isArray(data)) throw new Error("Ongeldig antwoord van de server");
 
       setLists(data);
+      setMdblistLists(data);  // <--- hier de context ook updaten
+
       setError("");
       setIsValid(true);
     } catch (err) {
       setError((err as Error).message);
       setIsValid(false);
       setLists([]);
+      setMdblistLists([]);   // resetten bij error
     } finally {
       setLoadingLists(false);
     }
@@ -55,9 +59,10 @@ export default function MDBList() {
       fetchLists(mdblistkey);
     } else {
       setLists([]);
+      setMdblistLists([]);    // ook leegmaken als geen token
       setIsValid(null);
     }
-  }, [mdblistkey]);
+  }, [mdblistkey, setMdblistLists]);
 
   const handleSaveToken = () => {
     const trimmed = inputToken.trim();
@@ -71,6 +76,7 @@ export default function MDBList() {
   const handleLogout = () => {
     setMdblistkey("");
     setMdblistSelectedLists([]);
+    setMdblistLists([]);   // ook context resetten bij uitloggen
     setInputToken("");
     setLists([]);
     setIsValid(null);
