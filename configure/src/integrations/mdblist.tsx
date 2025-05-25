@@ -38,7 +38,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
           await fetchLists(config.mdblistkey);
         } else {
           setLists([]);
-          onChange({ mdblistSelectedLists: [] });
+          onChange({ ...config, mdblistSelectedLists: [] });
         }
       })();
     } else {
