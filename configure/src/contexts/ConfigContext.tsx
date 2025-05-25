@@ -17,7 +17,7 @@ export type CatalogConfig = {
 export type ConfigContextType = {
   rpdbkey: string;
   mdblistkey: string;
-  mdblistSelectedLists: number[]; // Nieuwe property voor geselecteerde MDBList lijsten
+  mdblistSelectedLists: number[];             // toegevoegd
   includeAdult: boolean;
   provideImdbId: boolean;
   tmdbPrefix: boolean;
@@ -30,7 +30,7 @@ export type ConfigContextType = {
   searchEnabled: boolean;
   setRpdbkey: (rpdbkey: string) => void;
   setMdblistkey: (mdblistkey: string) => void;
-  setMdblistSelectedLists: (lists: number[]) => void; // Setter
+  setMdblistSelectedLists: (lists: number[]) => void;  // toegevoegd
   setIncludeAdult: (includeAdult: boolean) => void;
   setProvideImdbId: (provideImdbId: boolean) => void;
   setTmdbPrefix: (tmdbPrefix: boolean) => void;
@@ -56,7 +56,7 @@ const allCatalogs = [
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [rpdbkey, setRpdbkey] = useState("");
   const [mdblistkey, setMdblistkey] = useState("");
-  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);
+  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);  // nieuw
   const [includeAdult, setIncludeAdult] = useState(false);
   const [provideImdbId, setProvideImdbId] = useState(false);
   const [tmdbPrefix, setTmdbPrefix] = useState(false);
@@ -94,7 +94,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
       if (config.rpdbkey) setRpdbkey(config.rpdbkey);
       if (config.mdblistkey) setMdblistkey(config.mdblistkey);
-      if (Array.isArray(config.mdblistSelectedLists)) setMdblistSelectedLists(config.mdblistSelectedLists);
+      if (config.mdblistSelectedLists && Array.isArray(config.mdblistSelectedLists)) {
+        setMdblistSelectedLists(config.mdblistSelectedLists);
+      }
       if (config.includeAdult) setIncludeAdult(config.includeAdult === "true");
       if (config.language) setLanguage(config.language);
 
@@ -131,16 +133,25 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Load token from localStorage on first load (only if not in URL)
+  // Load mdblistkey & mdblistSelectedLists from localStorage on first load (only if not in URL)
   useEffect(() => {
     const storedToken = localStorage.getItem("mdblistkey");
     if (storedToken && !mdblistkey) {
       console.debug("? Loaded token from localStorage:", storedToken);
       setMdblistkey(storedToken);
     }
+
+    const storedLists = localStorage.getItem("mdblistSelectedLists");
+    if (storedLists && !mdblistSelectedLists.length) {
+      try {
+        setMdblistSelectedLists(JSON.parse(storedLists));
+      } catch {
+        // ignore parse error
+      }
+    }
   }, []);
 
-  // Persist token to localStorage when it changes
+  // Persist mdblistkey to localStorage when it changes
   useEffect(() => {
     if (mdblistkey) {
       localStorage.setItem("mdblistkey", mdblistkey);
@@ -149,7 +160,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mdblistkey]);
 
-  // Persist mdblistSelectedLists in localStorage
+  // Persist mdblistSelectedLists to localStorage when it changes
   useEffect(() => {
     if (mdblistSelectedLists.length > 0) {
       localStorage.setItem("mdblistSelectedLists", JSON.stringify(mdblistSelectedLists));
@@ -158,19 +169,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mdblistSelectedLists]);
 
-  // Load mdblistSelectedLists from localStorage
-  useEffect(() => {
-    const savedLists = localStorage.getItem("mdblistSelectedLists");
-    if (savedLists) {
-      try {
-        setMdblistSelectedLists(JSON.parse(savedLists));
-      } catch {
-        // fail silently
-      }
-    }
-  }, []);
-
-  // Load config from URL on mount
   useEffect(() => {
     loadConfigFromUrl();
   }, []);
@@ -178,7 +176,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const value: ConfigContextType = {
     rpdbkey,
     mdblistkey,
-    mdblistSelectedLists,
+    mdblistSelectedLists,           // toegevoegd
     includeAdult,
     provideImdbId,
     tmdbPrefix,
@@ -191,7 +189,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     searchEnabled,
     setRpdbkey,
     setMdblistkey,
-    setMdblistSelectedLists,
+    setMdblistSelectedLists,        // toegevoegd
     setIncludeAdult,
     setProvideImdbId,
     setTmdbPrefix,
@@ -208,8 +206,4 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
 }
 
-export const useConfig = () => {
-  const ctx = useContext(ConfigContext);
-  if (!ctx) throw new Error("useConfig must be used within a ConfigProvider");
-  return ctx;
-};
+export const useConfig = () => useContext(ConfigContext);
