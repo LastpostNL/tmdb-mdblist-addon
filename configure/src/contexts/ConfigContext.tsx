@@ -65,6 +65,32 @@ const allCatalogs = [
   ...Object.values(streamingCatalogs).flat(),
 ];
 
+/**
+ * Filtert alle oude mdblist catalogs weg uit de basiscatalogus,
+ * en voegt alleen de geselecteerde mdblist-lijsten toe als nieuwe catalogi.
+ */
+function filterAndMapMdblistCatalogs(
+  baseCatalogs: CatalogConfig[],
+  mdblistLists: ListItem[],
+  mdblistSelectedLists: number[]
+): CatalogConfig[] {
+  // Filter oude mdblist catalogen eruit
+  const filteredBase = baseCatalogs.filter((c) => !c.id.startsWith("mdblist."));
+
+  // Maak nieuwe mdblist catalogen aan van alleen geselecteerde lijsten
+  const mdblistCatalogs = mdblistLists
+    .filter((list) => mdblistSelectedLists.includes(list.id))
+    .map((list) => ({
+      id: `mdblist.${list.id}`,
+      type: "mdblist",
+      name: list.name,
+      showInHome: false,
+      enabled: true,
+    }));
+
+  return [...filteredBase, ...mdblistCatalogs];
+}
+
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [rpdbkey, setRpdbkey] = useState("");
   const [mdblistkey, setMdblistkey] = useState("");
@@ -185,6 +211,13 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     loadConfigFromUrl();
   }, []);
+
+  // ** NIEUWE useEffect om catalogs te synchroniseren met selectie **
+  useEffect(() => {
+    setCatalogs((current) =>
+      filterAndMapMdblistCatalogs(current, mdblistLists, mdblistSelectedLists)
+    );
+  }, [mdblistLists, mdblistSelectedLists]);
 
   const value: ConfigContextType = {
     rpdbkey,
