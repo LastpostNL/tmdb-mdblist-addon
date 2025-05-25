@@ -5,6 +5,14 @@ import {
   streamingCatalogs,
 } from "@/data/catalogs";
 
+export interface ListItem {
+  id: number;
+  name: string;
+  description: string;
+  mediatype: string;
+  private: boolean;
+}
+
 export type CatalogConfig = {
   id: string;
   type: string;
@@ -16,7 +24,8 @@ export type CatalogConfig = {
 export type ConfigContextType = {
   rpdbkey: string;
   mdblistkey: string;
-  mdblistSelectedLists: number[];             // toegevoegd
+  mdblistSelectedLists: number[];
+  mdblistLists: ListItem[];
   includeAdult: boolean;
   provideImdbId: boolean;
   tmdbPrefix: boolean;
@@ -29,7 +38,8 @@ export type ConfigContextType = {
   searchEnabled: boolean;
   setRpdbkey: (rpdbkey: string) => void;
   setMdblistkey: (mdblistkey: string) => void;
-  setMdblistSelectedLists: (lists: number[]) => void;  // toegevoegd
+  setMdblistSelectedLists: (lists: number[]) => void;
+  setMdblistLists: (lists: ListItem[]) => void;
   setIncludeAdult: (includeAdult: boolean) => void;
   setProvideImdbId: (provideImdbId: boolean) => void;
   setTmdbPrefix: (tmdbPrefix: boolean) => void;
@@ -37,13 +47,17 @@ export type ConfigContextType = {
   setLanguage: (language: string) => void;
   setSessionId: (sessionId: string) => void;
   setStreaming: (streaming: string[]) => void;
-  setCatalogs: (catalogs: CatalogConfig[] | ((prev: CatalogConfig[]) => CatalogConfig[])) => void;
+  setCatalogs: (
+    catalogs: CatalogConfig[] | ((prev: CatalogConfig[]) => CatalogConfig[])
+  ) => void;
   setAgeRating: (ageRating: string | undefined) => void;
   setSearchEnabled: (enabled: boolean) => void;
   loadConfigFromUrl: () => void;
 };
 
-export const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
+export const ConfigContext = createContext<ConfigContextType | undefined>(
+  undefined
+);
 
 const allCatalogs = [
   ...baseCatalogs,
@@ -54,7 +68,8 @@ const allCatalogs = [
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [rpdbkey, setRpdbkey] = useState("");
   const [mdblistkey, setMdblistkey] = useState("");
-  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);  // nieuw
+  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);
+  const [mdblistLists, setMdblistLists] = useState<ListItem[]>([]);
   const [includeAdult, setIncludeAdult] = useState(false);
   const [provideImdbId, setProvideImdbId] = useState(false);
   const [tmdbPrefix, setTmdbPrefix] = useState(false);
@@ -174,7 +189,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const value: ConfigContextType = {
     rpdbkey,
     mdblistkey,
-    mdblistSelectedLists,           // toegevoegd
+    mdblistSelectedLists,
+    mdblistLists,
     includeAdult,
     provideImdbId,
     tmdbPrefix,
@@ -187,7 +203,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     searchEnabled,
     setRpdbkey,
     setMdblistkey,
-    setMdblistSelectedLists,        // toegevoegd
+    setMdblistSelectedLists,
+    setMdblistLists,
     setIncludeAdult,
     setProvideImdbId,
     setTmdbPrefix,
