@@ -3,15 +3,15 @@
   "version": "3.1.4",
   "description": "Metadata provided by TMDB",
   "main": "server.js",
-  "scripts": {
-    "dev": "vite",
-    "dev:server": "nodemon addon/server.js",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "start": "node addon/server.js"
-  },
+"scripts": {
+  "dev": "concurrently \"vite\" \"nodemon addon/server.js\"",
+  "dev:server": "nodemon addon/server.js",
+  "dev:ui": "vite",
+  "build": "vite build",
+  "lint": "eslint .",
+  "preview": "vite preview",
+  "start": "node addon/server.js"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mrcanelas/tmdb-addon"
