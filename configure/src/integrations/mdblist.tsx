@@ -26,40 +26,19 @@ export default function MDBList({ config, onChange }: MDBListProps) {
   const [error, setError] = useState("");
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [lists, setLists] = useState<ListItem[]>([]);
-  const [selectedLists, setSelectedLists] = useState<number[]>([]);
+
+  // Selected lists that are saved in config
+  const [selectedLists, setSelectedLists] = useState<number[]>(config.mdblistSelectedLists || []);
+  // Pending selection controlled locally before saving
+  const [pendingSelection, setPendingSelection] = useState<number[]>(selectedLists);
   const [loadingLists, setLoadingLists] = useState(false);
-
-  useEffect(() => {
-    console.log("[useEffect] mdblistkey changed:", config.mdblistkey);
-    if (config.mdblistkey) {
-      (async () => {
-        const valid = await verifyToken(config.mdblistkey);
-        if (valid) {
-          await fetchLists(config.mdblistkey);
-        } else {
-          setLists([]);
-          onChange({ ...config, mdblistSelectedLists: [] });
-        }
-      })();
-    } else {
-      setIsValid(null);
-      setLists([]);
-      setSelectedLists([]);
-    }
-  }, [config.mdblistkey]);
-
-  useEffect(() => {
-    console.log("[useEffect] mdblistSelectedLists changed:", config.mdblistSelectedLists);
-    if (Array.isArray(config.mdblistSelectedLists)) {
-      setSelectedLists(config.mdblistSelectedLists);
-    }
-  }, [config.mdblistSelectedLists]);
 
   const verifyToken = async (key: string) => {
     try {
       const url = `${API_BASE}/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Verificatie mislukt");
+
       const data = await res.json();
       if (data && data.user_id) {
         setIsValid(true);
@@ -81,6 +60,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       const url = `${API_BASE}/lists/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch lists");
+
       const data = await res.json();
       setLists(Array.isArray(data) ? data : data.lists || []);
       setError("");
@@ -92,6 +72,35 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     }
   };
 
+  // Wanneer mdblistkey verandert, opnieuw token valideren en lijsten ophalen
+  useEffect(() => {
+    if (config.mdblistkey) {
+      (async () => {
+        const valid = await verifyToken(config.mdblistkey);
+        if (valid) {
+          await fetchLists(config.mdblistkey);
+        } else {
+          setLists([]);
+          onChange({ mdblistSelectedLists: [] });
+        }
+      })();
+    } else {
+      setIsValid(null);
+      setLists([]);
+      setSelectedLists([]);
+      setPendingSelection([]);
+    }
+  }, [config.mdblistkey]);
+
+  // Als mdblistSelectedLists in config verandert, update lokale geselecteerde lijsten én pending selectie
+  useEffect(() => {
+    if (Array.isArray(config.mdblistSelectedLists)) {
+      setSelectedLists(config.mdblistSelectedLists);
+      setPendingSelection(config.mdblistSelectedLists);
+    }
+  }, [config.mdblistSelectedLists]);
+
+  // Token opslaan via knop
   const handleSave = async () => {
     const trimmedToken = inputToken.trim();
     if (!trimmedToken) {
@@ -99,30 +108,36 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       setIsValid(false);
       return;
     }
+
     const valid = await verifyToken(trimmedToken);
     if (valid) {
-      console.log("[handleSave] Storing token:", trimmedToken);
       onChange({ ...config, mdblistkey: trimmedToken });
       await fetchLists(trimmedToken);
     }
   };
 
+  // Uitloggen: reset alles en notify parent
   const handleLogout = () => {
-    console.log("[handleLogout] Clearing token and selected lists");
     onChange({ ...config, mdblistkey: "", mdblistSelectedLists: [] });
     setInputToken("");
     setIsValid(null);
     setLists([]);
     setSelectedLists([]);
+    setPendingSelection([]);
   };
 
+  // Lijsten aanvinken/verwijderen in lokale pending selectie
   const toggleListSelection = (id: number) => {
-    const newSelection = selectedLists.includes(id)
-      ? selectedLists.filter((x) => x !== id)
-      : [...selectedLists, id];
-    console.log("[toggleListSelection] New selection:", newSelection);
-    setSelectedLists(newSelection);
-    onChange({ ...config, mdblistSelectedLists: newSelection });
+    const newSelection = pendingSelection.includes(id)
+      ? pendingSelection.filter((x) => x !== id)
+      : [...pendingSelection, id];
+    setPendingSelection(newSelection);
+  };
+
+  // Pas hier pas selectie opslaan in config en notify parent
+  const handleSaveSelection = () => {
+    setSelectedLists(pendingSelection);
+    onChange({ ...config, mdblistSelectedLists: pendingSelection });
   };
 
   return (
@@ -156,7 +171,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
                   >
                     <input
                       type="checkbox"
-                      checked={selectedLists.includes(list.id)}
+                      checked={pendingSelection.includes(list.id)}
                       onChange={() => toggleListSelection(list.id)}
                     />
                     <span>
@@ -166,6 +181,10 @@ export default function MDBList({ config, onChange }: MDBListProps) {
                 ))}
               </div>
             )}
+
+            <Button onClick={handleSaveSelection} className="mt-4 w-full">
+              Opslaan selectie
+            </Button>
           </div>
 
           <DialogClose asChild>
