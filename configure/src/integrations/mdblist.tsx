@@ -29,12 +29,37 @@ export default function MDBList({ config, onChange }: MDBListProps) {
   const [selectedLists, setSelectedLists] = useState<number[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
+  useEffect(() => {
+    console.log("[useEffect] mdblistkey changed:", config.mdblistkey);
+    if (config.mdblistkey) {
+      (async () => {
+        const valid = await verifyToken(config.mdblistkey);
+        if (valid) {
+          await fetchLists(config.mdblistkey);
+        } else {
+          setLists([]);
+          onChange({ mdblistSelectedLists: [] });
+        }
+      })();
+    } else {
+      setIsValid(null);
+      setLists([]);
+      setSelectedLists([]);
+    }
+  }, [config.mdblistkey]);
+
+  useEffect(() => {
+    console.log("[useEffect] mdblistSelectedLists changed:", config.mdblistSelectedLists);
+    if (Array.isArray(config.mdblistSelectedLists)) {
+      setSelectedLists(config.mdblistSelectedLists);
+    }
+  }, [config.mdblistSelectedLists]);
+
   const verifyToken = async (key: string) => {
     try {
       const url = `${API_BASE}/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Verificatie mislukt");
-
       const data = await res.json();
       if (data && data.user_id) {
         setIsValid(true);
@@ -56,7 +81,6 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       const url = `${API_BASE}/lists/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch lists");
-
       const data = await res.json();
       setLists(Array.isArray(data) ? data : data.lists || []);
       setError("");
@@ -68,30 +92,6 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     }
   };
 
-  useEffect(() => {
-    if (config.mdblistkey) {
-      (async () => {
-        const valid = await verifyToken(config.mdblistkey);
-        if (valid) {
-          await fetchLists(config.mdblistkey);
-        } else {
-          setLists([]);
-          onChange({ mdblistSelectedLists: [] });
-        }
-      })();
-    } else {
-      setIsValid(null);
-      setLists([]);
-      setSelectedLists([]);
-    }
-  }, [config.mdblistkey]);
-
-  useEffect(() => {
-    if (Array.isArray(config.mdblistSelectedLists)) {
-      setSelectedLists(config.mdblistSelectedLists);
-    }
-  }, [config.mdblistSelectedLists]);
-
   const handleSave = async () => {
     const trimmedToken = inputToken.trim();
     if (!trimmedToken) {
@@ -99,15 +99,16 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       setIsValid(false);
       return;
     }
-
     const valid = await verifyToken(trimmedToken);
     if (valid) {
+      console.log("[handleSave] Storing token:", trimmedToken);
       onChange({ ...config, mdblistkey: trimmedToken });
       await fetchLists(trimmedToken);
     }
   };
 
   const handleLogout = () => {
+    console.log("[handleLogout] Clearing token and selected lists");
     onChange({ ...config, mdblistkey: "", mdblistSelectedLists: [] });
     setInputToken("");
     setIsValid(null);
@@ -119,7 +120,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     const newSelection = selectedLists.includes(id)
       ? selectedLists.filter((x) => x !== id)
       : [...selectedLists, id];
-
+    console.log("[toggleListSelection] New selection:", newSelection);
     setSelectedLists(newSelection);
     onChange({ ...config, mdblistSelectedLists: newSelection });
   };
