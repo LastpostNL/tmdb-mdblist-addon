@@ -34,6 +34,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       const url = `${API_BASE}/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Verificatie mislukt");
+
       const data = await res.json();
       if (data && data.user_id) {
         setIsValid(true);
@@ -55,6 +56,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       const url = `${API_BASE}/lists/user?apikey=${key}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch lists");
+
       const data = await res.json();
       setLists(Array.isArray(data) ? data : data.lists || []);
       setError("");
@@ -72,10 +74,8 @@ export default function MDBList({ config, onChange }: MDBListProps) {
         const valid = await verifyToken(config.mdblistkey);
         if (valid) {
           await fetchLists(config.mdblistkey);
-          setSelectedLists(config.mdblistSelectedLists || []);
         } else {
           setLists([]);
-          setSelectedLists([]);
           onChange({ mdblistSelectedLists: [] });
         }
       })();
@@ -86,6 +86,12 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     }
   }, [config.mdblistkey]);
 
+  useEffect(() => {
+    if (Array.isArray(config.mdblistSelectedLists)) {
+      setSelectedLists(config.mdblistSelectedLists);
+    }
+  }, [config.mdblistSelectedLists]);
+
   const handleSave = async () => {
     const trimmedToken = inputToken.trim();
     if (!trimmedToken) {
@@ -93,6 +99,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       setIsValid(false);
       return;
     }
+
     const valid = await verifyToken(trimmedToken);
     if (valid) {
       onChange({ ...config, mdblistkey: trimmedToken });
@@ -109,12 +116,10 @@ export default function MDBList({ config, onChange }: MDBListProps) {
   };
 
   const toggleListSelection = (id: number) => {
-    let newSelection: number[];
-    if (selectedLists.includes(id)) {
-      newSelection = selectedLists.filter((x) => x !== id);
-    } else {
-      newSelection = [...selectedLists, id];
-    }
+    const newSelection = selectedLists.includes(id)
+      ? selectedLists.filter((x) => x !== id)
+      : [...selectedLists, id];
+
     setSelectedLists(newSelection);
     onChange({ ...config, mdblistSelectedLists: newSelection });
   };
