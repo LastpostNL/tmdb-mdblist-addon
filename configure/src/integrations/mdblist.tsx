@@ -5,11 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 import { DialogClose } from "@/components/ui/dialog";
-
-interface MDBListProps {
-  config: Record<string, any>;
-  onChange: (newPartialConfig: Record<string, any>) => void;
-}
+import { useConfig } from "./ConfigContext";
 
 interface ListItem {
   id: number;
@@ -21,16 +17,19 @@ interface ListItem {
 
 const API_BASE = "https://api.mdblist.com";
 
-export default function MDBList({ config, onChange }: MDBListProps) {
-  const [inputToken, setInputToken] = useState(config.mdblistkey || "");
+export default function MDBList() {
+  const {
+    mdblistkey,
+    mdblistSelectedLists,
+    setMdblistkey,
+    setMdblistSelectedLists,
+  } = useConfig();
+
+  const [inputToken, setInputToken] = useState(mdblistkey || "");
   const [error, setError] = useState("");
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [lists, setLists] = useState<ListItem[]>([]);
-
-  // Selected lists that are saved in config
-  const [selectedLists, setSelectedLists] = useState<number[]>(config.mdblistSelectedLists || []);
-  // Pending selection controlled locally before saving
-  const [pendingSelection, setPendingSelection] = useState<number[]>(selectedLists);
+  const [pendingSelection, setPendingSelection] = useState<number[]>(mdblistSelectedLists);
   const [loadingLists, setLoadingLists] = useState(false);
 
   const verifyToken = async (key: string) => {
@@ -72,35 +71,31 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     }
   };
 
-  // Wanneer mdblistkey verandert, opnieuw token valideren en lijsten ophalen
   useEffect(() => {
-    if (config.mdblistkey) {
+    if (mdblistkey) {
       (async () => {
-        const valid = await verifyToken(config.mdblistkey);
+        const valid = await verifyToken(mdblistkey);
         if (valid) {
-          await fetchLists(config.mdblistkey);
+          await fetchLists(mdblistkey);
         } else {
           setLists([]);
-          onChange({ mdblistSelectedLists: [] });
+          setMdblistSelectedLists([]);
         }
       })();
     } else {
       setIsValid(null);
       setLists([]);
-      setSelectedLists([]);
       setPendingSelection([]);
+      setMdblistSelectedLists([]);
     }
-  }, [config.mdblistkey]);
+  }, [mdblistkey]);
 
-  // Als mdblistSelectedLists in config verandert, update lokale geselecteerde lijsten én pending selectie
   useEffect(() => {
-    if (Array.isArray(config.mdblistSelectedLists)) {
-      setSelectedLists(config.mdblistSelectedLists);
-      setPendingSelection(config.mdblistSelectedLists);
+    if (Array.isArray(mdblistSelectedLists)) {
+      setPendingSelection(mdblistSelectedLists);
     }
-  }, [config.mdblistSelectedLists]);
+  }, [mdblistSelectedLists]);
 
-  // Token opslaan via knop
   const handleSave = async () => {
     const trimmedToken = inputToken.trim();
     if (!trimmedToken) {
@@ -111,22 +106,20 @@ export default function MDBList({ config, onChange }: MDBListProps) {
 
     const valid = await verifyToken(trimmedToken);
     if (valid) {
-      onChange({ ...config, mdblistkey: trimmedToken });
+      setMdblistkey(trimmedToken);
       await fetchLists(trimmedToken);
     }
   };
 
-  // Uitloggen: reset alles en notify parent
   const handleLogout = () => {
-    onChange({ ...config, mdblistkey: "", mdblistSelectedLists: [] });
+    setMdblistkey("");
+    setMdblistSelectedLists([]);
     setInputToken("");
     setIsValid(null);
     setLists([]);
-    setSelectedLists([]);
     setPendingSelection([]);
   };
 
-  // Lijsten aanvinken/verwijderen in lokale pending selectie
   const toggleListSelection = (id: number) => {
     const newSelection = pendingSelection.includes(id)
       ? pendingSelection.filter((x) => x !== id)
@@ -134,10 +127,8 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     setPendingSelection(newSelection);
   };
 
-  // Pas hier pas selectie opslaan in config en notify parent
   const handleSaveSelection = () => {
-    setSelectedLists(pendingSelection);
-    onChange({ ...config, mdblistSelectedLists: pendingSelection });
+    setMdblistSelectedLists(pendingSelection);
   };
 
   return (
