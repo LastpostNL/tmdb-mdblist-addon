@@ -29,7 +29,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
   const [selectedLists, setSelectedLists] = useState<number[]>(config.mdblistSelectedLists || []);
   const [loadingLists, setLoadingLists] = useState(false);
 
-  // Verifieer token via MDBList API
+  // Verifieer token rechtstreeks via backend API (poorten 1337, zonder proxy)
   const verifyToken = async (key: string) => {
     try {
       const url = `${API_BASE}/user?apikey=${key}`;
@@ -45,14 +45,14 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       } else {
         throw new Error("Token ongeldig of geen gebruikersgegevens gevonden");
       }
-    } catch {
+    } catch (err) {
       setIsValid(false);
       setError("Invalid or expired token.");
       return false;
     }
   };
 
-  // Lijsten ophalen via MDBList API
+  // Lijsten ophalen
   const fetchLists = async (key: string) => {
     setLoadingLists(true);
     try {
@@ -61,9 +61,9 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       if (!res.ok) throw new Error("Failed to fetch lists");
 
       const data = await res.json();
-      setLists(data.lists || []);
+      setLists(Array.isArray(data) ? data : data.lists || []);
       setError("");
-    } catch {
+    } catch (err) {
       setError("Failed to load lists.");
       setLists([]);
     } finally {
@@ -71,7 +71,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
     }
   };
 
-  // Init: als token verandert, verifieer en haal lijsten op
+  // Bij init of als token of geselecteerde lijsten veranderen: verifieer en haal lijsten op
   useEffect(() => {
     if (config.mdblistkey) {
       (async () => {
@@ -90,9 +90,9 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       setLists([]);
       setSelectedLists([]);
     }
-  }, [config.mdblistkey]);
+  }, [config.mdblistkey, config.mdblistSelectedLists]);
 
-  // Token opslaan en lijsten laden
+  // Handlers
   const handleSave = async () => {
     const trimmedToken = inputToken.trim();
 
@@ -104,21 +104,20 @@ export default function MDBList({ config, onChange }: MDBListProps) {
 
     const valid = await verifyToken(trimmedToken);
     if (valid) {
-      onChange({ mdblistkey: trimmedToken });
+      onChange({ ...config, mdblistkey: trimmedToken });
       await fetchLists(trimmedToken);
     }
   };
 
-  // Uitloggen (token en lijsten resetten)
   const handleLogout = () => {
-    onChange({ mdblistkey: "", mdblistSelectedLists: [] });
+    onChange({ ...config, mdblistkey: "", mdblistSelectedLists: [] });
     setInputToken("");
     setIsValid(null);
     setLists([]);
     setSelectedLists([]);
   };
 
-  // Checkbox toggle lijst selectie
+  // Checkbox toggles geselecteerde lijst ID
   const toggleListSelection = (id: number) => {
     let newSelection: number[];
     if (selectedLists.includes(id)) {
@@ -127,7 +126,7 @@ export default function MDBList({ config, onChange }: MDBListProps) {
       newSelection = [...selectedLists, id];
     }
     setSelectedLists(newSelection);
-    onChange({ mdblistSelectedLists: newSelection });
+    onChange({ ...config, mdblistSelectedLists: newSelection });
   };
 
   return (
