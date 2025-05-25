@@ -71,15 +71,36 @@ function filterAndMapMdblistCatalogs(
   mdblistSelectedLists: number[]
 ): CatalogConfig[] {
   const filteredBase = baseCatalogs.filter((c) => !c.id.startsWith("mdblist."));
+
   const mdblistCatalogs = mdblistLists
     .filter((list) => mdblistSelectedLists.includes(list.id))
-    .map((list) => ({
-      id: `mdblist.${list.id}`,
-      type: "mdblist",
-      name: list.name,
-      showInHome: false,
-      enabled: true,
-    }));
+    .flatMap((list) => {
+      const catalogBase = {
+        name: list.name,
+        showInHome: false,
+        enabled: true,
+      };
+
+      const catalogs = [];
+
+      if (list.mediatype === "movie") {
+        catalogs.push({
+          id: `mdblist.movie.${list.id}`,
+          type: "movie",
+          ...catalogBase,
+        });
+      }
+
+      if (list.mediatype === "show") {
+        catalogs.push({
+          id: `mdblist.series.${list.id}`,
+          type: "series",
+          ...catalogBase,
+        });
+      }
+
+      return catalogs;
+    });
 
   return [...filteredBase, ...mdblistCatalogs];
 }
