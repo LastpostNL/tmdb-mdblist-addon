@@ -15,13 +15,11 @@ interface ListItem {
   private: boolean;
 }
 
-const API_BASE = "https://api.mdblist.com";
-
 export default function MDBList() {
   const {
     mdblistkey,
-    mdblistSelectedLists,
     setMdblistkey,
+    mdblistSelectedLists,
     setMdblistSelectedLists,
   } = useConfig();
 
@@ -29,42 +27,23 @@ export default function MDBList() {
   const [error, setError] = useState("");
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [lists, setLists] = useState<ListItem[]>([]);
-  const [pendingSelection, setPendingSelection] = useState<number[]>(mdblistSelectedLists);
   const [loadingLists, setLoadingLists] = useState(false);
-
-  const verifyToken = async (key: string) => {
-    try {
-      const url = `${API_BASE}/user?apikey=${key}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Verificatie mislukt");
-
-      const data = await res.json();
-      if (data && data.user_id) {
-        setIsValid(true);
-        setError("");
-        return true;
-      } else {
-        throw new Error("Token ongeldig of geen gebruikersgegevens gevonden");
-      }
-    } catch (err) {
-      setIsValid(false);
-      setError("Invalid or expired token.");
-      return false;
-    }
-  };
 
   const fetchLists = async (key: string) => {
     setLoadingLists(true);
     try {
-      const url = `${API_BASE}/lists/user?apikey=${key}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch lists");
+      const res = await fetch(`/mdblist/lists/user?apikey=${key}`);
+      if (!res.ok) throw new Error("Lijsten ophalen mislukt");
 
       const data = await res.json();
-      setLists(Array.isArray(data) ? data : data.lists || []);
+      if (!Array.isArray(data)) throw new Error("Ongeldig antwoord van de server");
+
+      setLists(data);
       setError("");
+      setIsValid(true);
     } catch (err) {
-      setError("Failed to load lists.");
+      setError((err as Error).message);
+      setIsValid(false);
       setLists([]);
     } finally {
       setLoadingLists(false);
@@ -73,62 +52,36 @@ export default function MDBList() {
 
   useEffect(() => {
     if (mdblistkey) {
-      (async () => {
-        const valid = await verifyToken(mdblistkey);
-        if (valid) {
-          await fetchLists(mdblistkey);
-        } else {
-          setLists([]);
-          setMdblistSelectedLists([]);
-        }
-      })();
+      fetchLists(mdblistkey);
     } else {
-      setIsValid(null);
       setLists([]);
-      setPendingSelection([]);
-      setMdblistSelectedLists([]);
+      setIsValid(null);
     }
   }, [mdblistkey]);
 
-  useEffect(() => {
-    if (Array.isArray(mdblistSelectedLists)) {
-      setPendingSelection(mdblistSelectedLists);
-    }
-  }, [mdblistSelectedLists]);
-
-  const handleSave = async () => {
-    const trimmedToken = inputToken.trim();
-    if (!trimmedToken) {
-      setError("Token cannot be empty.");
-      setIsValid(false);
+  const handleSaveToken = () => {
+    const trimmed = inputToken.trim();
+    if (!trimmed) {
+      setError("Token mag niet leeg zijn");
       return;
     }
-
-    const valid = await verifyToken(trimmedToken);
-    if (valid) {
-      setMdblistkey(trimmedToken);
-      await fetchLists(trimmedToken);
-    }
+    setMdblistkey(trimmed);
   };
 
   const handleLogout = () => {
     setMdblistkey("");
     setMdblistSelectedLists([]);
     setInputToken("");
-    setIsValid(null);
     setLists([]);
-    setPendingSelection([]);
+    setIsValid(null);
   };
 
   const toggleListSelection = (id: number) => {
-    const newSelection = pendingSelection.includes(id)
-      ? pendingSelection.filter((x) => x !== id)
-      : [...pendingSelection, id];
-    setPendingSelection(newSelection);
-  };
-
-  const handleSaveSelection = () => {
-    setMdblistSelectedLists(pendingSelection);
+    setMdblistSelectedLists((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id]
+    );
   };
 
   return (
@@ -143,15 +96,15 @@ export default function MDBList() {
       {isValid ? (
         <>
           <Alert>
-            <AlertDescription>You are logged in to MDBList</AlertDescription>
+            <AlertDescription>✅ Je bent ingelogd bij MDBList</AlertDescription>
           </Alert>
 
           <div>
-            <Label className="mb-2 font-semibold">Select your lists:</Label>
+            <Label className="mb-2 font-semibold">Selecteer je lijsten:</Label>
             {loadingLists ? (
-              <div>Loading lists...</div>
+              <div>Lijsten laden...</div>
             ) : lists.length === 0 ? (
-              <div>No lists found.</div>
+              <div>Geen lijsten gevonden.</div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-auto border rounded p-2">
                 {lists.map((list) => (
@@ -162,7 +115,7 @@ export default function MDBList() {
                   >
                     <input
                       type="checkbox"
-                      checked={pendingSelection.includes(list.id)}
+                      checked={mdblistSelectedLists.includes(list.id)}
                       onChange={() => toggleListSelection(list.id)}
                     />
                     <span>
@@ -172,30 +125,24 @@ export default function MDBList() {
                 ))}
               </div>
             )}
-
-            <Button onClick={handleSaveSelection} className="mt-4 w-full">
-              Opslaan selectie
-            </Button>
           </div>
 
           <DialogClose asChild>
             <Button variant="destructive" onClick={handleLogout} className="mt-4">
-              Logout
+              Uitloggen
             </Button>
           </DialogClose>
         </>
       ) : (
         <div className="space-y-4">
+          <Label htmlFor="mdblistToken">MDBList API Token</Label>
           <Input
-            type="text"
-            placeholder="Enter MDBList token"
-            className="w-full"
+            id="mdblistToken"
+            placeholder="Voer je API token in"
             value={inputToken}
             onChange={(e) => setInputToken(e.target.value)}
           />
-          <Button onClick={handleSave} className="w-full">
-            Save Token
-          </Button>
+          <Button onClick={handleSaveToken}>Inloggen</Button>
         </div>
       )}
     </div>
