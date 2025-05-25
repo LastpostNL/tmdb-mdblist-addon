@@ -48,7 +48,6 @@ export const ConfigContext = createContext<ConfigContextType | undefined>(undefi
 const allCatalogs = [
   ...baseCatalogs,
   ...authCatalogs,
-  ...mdblistCatalogs,
   ...Object.values(streamingCatalogs).flat(),
 ];
 
