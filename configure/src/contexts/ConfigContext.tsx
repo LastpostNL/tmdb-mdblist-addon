@@ -1,11 +1,50 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { ConfigContext, type ConfigContextType, type CatalogConfig } from "./config";
 import {
   baseCatalogs,
   authCatalogs,
   mdblistCatalogs,
   streamingCatalogs,
 } from "@/data/catalogs";
+
+export type CatalogConfig = {
+  id: string;
+  type: string;
+  name?: string;
+  showInHome: boolean;
+  enabled: boolean;
+};
+
+export type ConfigContextType = {
+  rpdbkey: string;
+  mdblistkey: string;
+  mdblistSelectedLists: number[]; // Nieuwe property voor geselecteerde MDBList lijsten
+  includeAdult: boolean;
+  provideImdbId: boolean;
+  tmdbPrefix: boolean;
+  hideEpisodeThumbnails: boolean;
+  language: string;
+  sessionId: string;
+  streaming: string[];
+  catalogs: CatalogConfig[];
+  ageRating: string | undefined;
+  searchEnabled: boolean;
+  setRpdbkey: (rpdbkey: string) => void;
+  setMdblistkey: (mdblistkey: string) => void;
+  setMdblistSelectedLists: (lists: number[]) => void; // Setter
+  setIncludeAdult: (includeAdult: boolean) => void;
+  setProvideImdbId: (provideImdbId: boolean) => void;
+  setTmdbPrefix: (tmdbPrefix: boolean) => void;
+  setHideEpisodeThumbnails: (hideEpisodeThumbnails: boolean) => void;
+  setLanguage: (language: string) => void;
+  setSessionId: (sessionId: string) => void;
+  setStreaming: (streaming: string[]) => void;
+  setCatalogs: (catalogs: CatalogConfig[] | ((prev: CatalogConfig[]) => CatalogConfig[])) => void;
+  setAgeRating: (ageRating: string | undefined) => void;
+  setSearchEnabled: (enabled: boolean) => void;
+  loadConfigFromUrl: () => void;
+};
+
+export const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 const allCatalogs = [
   ...baseCatalogs,
@@ -17,6 +56,7 @@ const allCatalogs = [
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [rpdbkey, setRpdbkey] = useState("");
   const [mdblistkey, setMdblistkey] = useState("");
+  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);
   const [includeAdult, setIncludeAdult] = useState(false);
   const [provideImdbId, setProvideImdbId] = useState(false);
   const [tmdbPrefix, setTmdbPrefix] = useState(false);
@@ -27,17 +67,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [catalogs, setCatalogs] = useState<CatalogConfig[]>([]);
   const [ageRating, setAgeRating] = useState<string | undefined>(undefined);
   const [searchEnabled, setSearchEnabled] = useState<boolean>(true);
-
-  // NIEUWE STATE VOOR GESELECTEERDE MDBLIST LIJSTEN
-  const [selectedMdblistLists, setSelectedMdblistLists] = useState<number[]>(() => {
-    const saved = localStorage.getItem("selectedMdblistLists");
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Persisteer selectedMdblistLists in localStorage bij wijzigen
-  useEffect(() => {
-    localStorage.setItem("selectedMdblistLists", JSON.stringify(selectedMdblistLists));
-  }, [selectedMdblistLists]);
 
   const loadDefaultCatalogs = () => {
     const defaultCatalogs = baseCatalogs.map((catalog) => ({
@@ -65,6 +94,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
       if (config.rpdbkey) setRpdbkey(config.rpdbkey);
       if (config.mdblistkey) setMdblistkey(config.mdblistkey);
+      if (Array.isArray(config.mdblistSelectedLists)) setMdblistSelectedLists(config.mdblistSelectedLists);
       if (config.includeAdult) setIncludeAdult(config.includeAdult === "true");
       if (config.language) setLanguage(config.language);
 
@@ -95,19 +125,13 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
       if (config.searchEnabled)
         setSearchEnabled(config.searchEnabled === "true");
-
-      // Optioneel: ook geselecteerde lijsten laden uit URL-config
-      if (config.selectedMdblistLists) {
-        setSelectedMdblistLists(config.selectedMdblistLists);
-      }
-
     } catch (error) {
       console.error("Error loading config from URL:", error);
       loadDefaultCatalogs();
     }
   };
 
-  // ? Load token from localStorage on first load (only if not in URL)
+  // Load token from localStorage on first load (only if not in URL)
   useEffect(() => {
     const storedToken = localStorage.getItem("mdblistkey");
     if (storedToken && !mdblistkey) {
@@ -116,7 +140,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ? Persist token to localStorage when it changes
+  // Persist token to localStorage when it changes
   useEffect(() => {
     if (mdblistkey) {
       localStorage.setItem("mdblistkey", mdblistkey);
@@ -125,6 +149,28 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mdblistkey]);
 
+  // Persist mdblistSelectedLists in localStorage
+  useEffect(() => {
+    if (mdblistSelectedLists.length > 0) {
+      localStorage.setItem("mdblistSelectedLists", JSON.stringify(mdblistSelectedLists));
+    } else {
+      localStorage.removeItem("mdblistSelectedLists");
+    }
+  }, [mdblistSelectedLists]);
+
+  // Load mdblistSelectedLists from localStorage
+  useEffect(() => {
+    const savedLists = localStorage.getItem("mdblistSelectedLists");
+    if (savedLists) {
+      try {
+        setMdblistSelectedLists(JSON.parse(savedLists));
+      } catch {
+        // fail silently
+      }
+    }
+  }, []);
+
+  // Load config from URL on mount
   useEffect(() => {
     loadConfigFromUrl();
   }, []);
@@ -132,6 +178,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const value: ConfigContextType = {
     rpdbkey,
     mdblistkey,
+    mdblistSelectedLists,
     includeAdult,
     provideImdbId,
     tmdbPrefix,
@@ -142,9 +189,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     catalogs,
     ageRating,
     searchEnabled,
-    selectedMdblistLists,         // toegevoegd
     setRpdbkey,
     setMdblistkey,
+    setMdblistSelectedLists,
     setIncludeAdult,
     setProvideImdbId,
     setTmdbPrefix,
@@ -155,11 +202,14 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     setCatalogs,
     setAgeRating,
     setSearchEnabled,
-    setSelectedMdblistLists,     // toegevoegd
     loadConfigFromUrl,
   };
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
 }
 
-export const useConfig = () => useContext(ConfigContext);
+export const useConfig = () => {
+  const ctx = useContext(ConfigContext);
+  if (!ctx) throw new Error("useConfig must be used within a ConfigProvider");
+  return ctx;
+};
