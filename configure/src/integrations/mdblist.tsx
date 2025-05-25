@@ -40,7 +40,7 @@ export default function MDBList() {
       if (!Array.isArray(data)) throw new Error("Ongeldig antwoord van de server");
 
       setLists(data);
-      setMdblistLists(data);  // <--- hier de context ook updaten
+      setMdblistLists(data);
 
       setError("");
       setIsValid(true);
