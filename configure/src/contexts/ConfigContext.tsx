@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   baseCatalogs,
   authCatalogs,
-  mdblistCatalogs,
   streamingCatalogs,
 } from "@/data/catalogs";
 
