@@ -65,19 +65,12 @@ const allCatalogs = [
   ...Object.values(streamingCatalogs).flat(),
 ];
 
-/**
- * Filtert alle oude mdblist catalogs weg uit de basiscatalogus,
- * en voegt alleen de geselecteerde mdblist-lijsten toe als nieuwe catalogi.
- */
 function filterAndMapMdblistCatalogs(
   baseCatalogs: CatalogConfig[],
   mdblistLists: ListItem[],
   mdblistSelectedLists: number[]
 ): CatalogConfig[] {
-  // Filter oude mdblist catalogen eruit
   const filteredBase = baseCatalogs.filter((c) => !c.id.startsWith("mdblist."));
-
-  // Maak nieuwe mdblist catalogen aan van alleen geselecteerde lijsten
   const mdblistCatalogs = mdblistLists
     .filter((list) => mdblistSelectedLists.includes(list.id))
     .map((list) => ({
@@ -95,7 +88,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [rpdbkey, setRpdbkey] = useState("");
   const [mdblistkey, setMdblistkey] = useState("");
   const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);
-  const [mdblistLists, setMdblistLists] = useState<ListItem[]>([]);
+  const [mdblistListsState, _setMdblistLists] = useState<ListItem[]>([]); // ✅ intern state
   const [includeAdult, setIncludeAdult] = useState(false);
   const [provideImdbId, setProvideImdbId] = useState(false);
   const [tmdbPrefix, setTmdbPrefix] = useState(false);
@@ -106,6 +99,14 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [catalogs, setCatalogs] = useState<CatalogConfig[]>([]);
   const [ageRating, setAgeRating] = useState<string | undefined>(undefined);
   const [searchEnabled, setSearchEnabled] = useState<boolean>(true);
+
+  // ✅ Zorgt voor unieke lijsten per id-mt combinatie
+  const setMdblistLists = (lists: ListItem[]) => {
+    const uniqueLists = Array.from(
+      new Map(lists.map((item) => [`${item.id}-${item.mediatype}`, item])).values()
+    );
+    _setMdblistLists(uniqueLists);
+  };
 
   const loadDefaultCatalogs = () => {
     const defaultCatalogs = baseCatalogs.map((catalog) => ({
@@ -172,7 +173,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Load mdblistkey & mdblistSelectedLists from localStorage on first load (only if not in URL)
   useEffect(() => {
     const storedToken = localStorage.getItem("mdblistkey");
     if (storedToken && !mdblistkey) {
@@ -190,7 +190,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Persist mdblistkey to localStorage when it changes
   useEffect(() => {
     if (mdblistkey) {
       localStorage.setItem("mdblistkey", mdblistkey);
@@ -199,7 +198,6 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mdblistkey]);
 
-  // Persist mdblistSelectedLists to localStorage when it changes
   useEffect(() => {
     if (mdblistSelectedLists.length > 0) {
       localStorage.setItem("mdblistSelectedLists", JSON.stringify(mdblistSelectedLists));
@@ -212,18 +210,17 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     loadConfigFromUrl();
   }, []);
 
-  // ** NIEUWE useEffect om catalogs te synchroniseren met selectie **
   useEffect(() => {
     setCatalogs((current) =>
-      filterAndMapMdblistCatalogs(current, mdblistLists, mdblistSelectedLists)
+      filterAndMapMdblistCatalogs(current, mdblistListsState, mdblistSelectedLists)
     );
-  }, [mdblistLists, mdblistSelectedLists]);
+  }, [mdblistListsState, mdblistSelectedLists]);
 
   const value: ConfigContextType = {
     rpdbkey,
     mdblistkey,
     mdblistSelectedLists,
-    mdblistLists,
+    mdblistLists: mdblistListsState,
     includeAdult,
     provideImdbId,
     tmdbPrefix,
