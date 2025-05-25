@@ -28,6 +28,17 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [ageRating, setAgeRating] = useState<string | undefined>(undefined);
   const [searchEnabled, setSearchEnabled] = useState<boolean>(true);
 
+  // NIEUWE STATE VOOR GESELECTEERDE MDBLIST LIJSTEN
+  const [selectedMdblistLists, setSelectedMdblistLists] = useState<number[]>(() => {
+    const saved = localStorage.getItem("selectedMdblistLists");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Persisteer selectedMdblistLists in localStorage bij wijzigen
+  useEffect(() => {
+    localStorage.setItem("selectedMdblistLists", JSON.stringify(selectedMdblistLists));
+  }, [selectedMdblistLists]);
+
   const loadDefaultCatalogs = () => {
     const defaultCatalogs = baseCatalogs.map((catalog) => ({
       ...catalog,
@@ -84,6 +95,12 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 
       if (config.searchEnabled)
         setSearchEnabled(config.searchEnabled === "true");
+
+      // Optioneel: ook geselecteerde lijsten laden uit URL-config
+      if (config.selectedMdblistLists) {
+        setSelectedMdblistLists(config.selectedMdblistLists);
+      }
+
     } catch (error) {
       console.error("Error loading config from URL:", error);
       loadDefaultCatalogs();
@@ -125,6 +142,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     catalogs,
     ageRating,
     searchEnabled,
+    selectedMdblistLists,         // toegevoegd
     setRpdbkey,
     setMdblistkey,
     setIncludeAdult,
@@ -137,6 +155,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     setCatalogs,
     setAgeRating,
     setSearchEnabled,
+    setSelectedMdblistLists,     // toegevoegd
     loadConfigFromUrl,
   };
 
