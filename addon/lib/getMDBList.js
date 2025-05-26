@@ -26,13 +26,14 @@ async function getMDBLists(userToken) {
 
 // Haalt één specifieke lijst op en retourneert object { metas: [] }
 async function getMDBList(type, language, page, id, config) {
-  const listId = id.replace("mdblist.", ""); // prefix weghalen
-  const userToken = config.mdblistUserToken;
+const listId = id.replace("mdblist.", ""); // prefix weghalen
+const safeConfig = config || {};
+const userToken = safeConfig.mdblistUserToken;
 
-  if (!userToken) {
-    console.error("MDBList user token missing in config.");
-    return { metas: [] };
-  }
+if (!userToken) {
+  console.error("MDBList user token ontbreekt of config is niet meegegeven:", config);
+  return { metas: [] };
+}
 
   const url = `https://api.mdblist.com/lists/user/${listId}?apikey=${userToken}`;
   console.log(`Fetching MDBList single list from: ${url}`);
