@@ -49,7 +49,7 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
 async function getMDBList(type, id, page, language, config) {
   const listId = id;
   const safeConfig = config || {};
-  const userToken = safeConfig.mdblistUserToken;
+onst userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
   const tmdbApiKey = safeConfig.tmdbApiKey;
 
   if (!userToken) {
