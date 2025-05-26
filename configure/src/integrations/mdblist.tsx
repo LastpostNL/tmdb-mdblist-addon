@@ -62,7 +62,7 @@ export default function MDBList() {
       setMdblistLists([]);    // ook leegmaken als geen token
       setIsValid(null);
     }
-  }, [mdblistkey, setMdblistLists]);
+}, [mdblistkey]);
 
   const handleSaveToken = () => {
     const trimmed = inputToken.trim();
