@@ -17,7 +17,6 @@ const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
 const { blurImage } = require('./utils/imageProcessor');
 const { getMDBLists } = require('./lib/getMDBList'); // ✅ correct
 
-
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
 addon.use(express.static(path.join(__dirname, '../public')));
