@@ -104,12 +104,17 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
 }
 
 async function getManifest(config) {
+  console.log("----- START getManifest -----");
+  console.log("config:", JSON.stringify(config, null, 2));
+
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
   const userCatalogs = config.catalogs || getDefaultCatalogs();
   const translatedCatalogs = loadTranslations(language);
+
+  console.log("User catalogs (config.catalogs):", JSON.stringify(userCatalogs, null, 2));
 
   const years = generateArrayOfYears(20);
 
@@ -118,6 +123,8 @@ async function getManifest(config) {
     const rawGenres = await getGenreList(language, "movie");
     if (Array.isArray(rawGenres)) {
       genres_movie = rawGenres.map(el => el.name).sort();
+    } else {
+      console.warn("⚠️ Geen geldige movie genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen movie genres:", err.message);
@@ -128,6 +135,8 @@ async function getManifest(config) {
     const rawGenres = await getGenreList(language, "series");
     if (Array.isArray(rawGenres)) {
       genres_series = rawGenres.map(el => el.name).sort();
+    } else {
+      console.warn("⚠️ Geen geldige series genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen series genres:", err.message);
@@ -137,47 +146,70 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  // Filter userCatalogs om alleen ingeschakelde catalogi mee te nemen
-  const enabledCatalogs = userCatalogs.filter(cat => cat.enabled === true);
+  // Log MDBList config data
+  console.log("MDBList config:", JSON.stringify(config.mdblist, null, 2));
 
-  // Bouw de catalog array op basis van enabledCatalogs
-  let catalogs = [];
-
-  for (const cat of enabledCatalogs) {
-    // MDBList catalogi herkennen aan prefix "mdblist_"
+  const filteredUserCatalogs = userCatalogs.filter(cat => {
     if (cat.id.startsWith("mdblist_")) {
-      // mediatype en listId kun je eventueel parsen uit cat.id, bv mdblist_movie_1234 of mdblist.1234
-      // Hier gaan we uit van id mdblist_<listId> en mediatype in cat.type
-      catalogs.push({
-        id: cat.id,
-        type: cat.type,
-        name: `[MDBList] ${cat.name || cat.id.replace("mdblist_", "")}`,
-        extra: [{ name: "search", isRequired: false }]
-      });
-      continue;
+      const listId = cat.id.replace("mdblist_", "");
+      const isSelected = config.mdblist &&
+        Array.isArray(config.mdblist.selectedLists) &&
+        config.mdblist.selectedLists.includes(listId);
+
+      console.log(`Filtering mdblist catalog '${cat.id}' => selected: ${isSelected}`);
+      return isSelected;
     }
+    return true;
+  });
 
-    // Voor overige catalogi halen we de definitie en opties op
-    const catalogDef = getCatalogDefinition(cat.id);
-    if (!catalogDef) continue;
-    if (catalogDef.requiresAuth && !sessionId) continue;
+  console.log("Filtered user catalogs:", JSON.stringify(filteredUserCatalogs, null, 2));
 
-    const catalogOptions = getOptionsForCatalog(catalogDef, cat.type, cat.showInHome, options);
-
-    catalogs.push(
-      createCatalog(
-        cat.id,
-        cat.type,
+  let catalogs = filteredUserCatalogs
+    .filter(userCatalog => {
+      const catalogDef = getCatalogDefinition(userCatalog.id);
+      if (!catalogDef) return false;
+      if (catalogDef.requiresAuth && !sessionId) return false;
+      return true;
+    })
+    .map(userCatalog => {
+      const catalogDef = getCatalogDefinition(userCatalog.id);
+      const catalogOptions = getOptionsForCatalog(catalogDef, userCatalog.type, userCatalog.showInHome, options);
+      return createCatalog(
+        userCatalog.id,
+        userCatalog.type,
         catalogDef,
         catalogOptions,
         tmdbPrefix,
         translatedCatalogs,
-        cat.showInHome
-      )
-    );
+        userCatalog.showInHome
+      );
+    });
+
+  // Voeg MDBList catalogi toe die geselecteerd zijn maar (misschien) niet in userCatalogs zaten
+  if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
+    const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
+    const existingCatalogIds = new Set(catalogs.map(c => c.id));
+
+    console.log("Selected MDBList lists:", JSON.stringify(selectedLists, null, 2));
+    console.log("Existing catalog IDs before adding selected MDBList:", Array.from(existingCatalogIds));
+
+    selectedLists.forEach(list => {
+      const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
+      const catalogId = `mdblist_${list.id}`;
+      if (!existingCatalogIds.has(catalogId)) {
+        console.log(`Adding MDBList catalog: ${catalogId} (${list.name})`);
+        catalogs.push({
+          id: catalogId,
+          type,
+          name: `[MDBList] ${list.name}`,
+          extra: [{ name: "search", isRequired: false }]
+        });
+      }
+    });
+
+    console.log("Catalog IDs after adding selected MDBList:", catalogs.map(c => c.id));
   }
 
-  // Voeg TMDB zoekcatalogi toe als searchEnabled true (of niet false)
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
       id: "tmdb.search",
@@ -193,7 +225,7 @@ async function getManifest(config) {
       extra: [{ name: "search", isRequired: true, options: [] }]
     };
 
-    catalogs.push(searchCatalogMovie, searchCatalogSeries);
+    catalogs = [...catalogs, searchCatalogMovie, searchCatalogSeries];
   }
 
   const activeConfigs = [
@@ -204,6 +236,10 @@ async function getManifest(config) {
     `Search: ${config.searchEnabled !== "false" ? 'Enabled' : 'Disabled'}`,
     `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
+
+  console.log("Final catalogs array:", catalogs.map(c => c.id));
+
+  console.log("----- END getManifest -----");
 
   return {
     id: packageJson.name,
