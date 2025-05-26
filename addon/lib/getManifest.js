@@ -112,11 +112,8 @@ async function getManifest(config) {
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
   const userCatalogs = config.catalogs || getDefaultCatalogs();
-console.log("userCatalogs:", JSON.stringify(userCatalogs, null, 2));
 
   const translatedCatalogs = loadTranslations(language);
-
-  console.log("User catalogs (config.catalogs):", JSON.stringify(userCatalogs, null, 2));
 
   const years = generateArrayOfYears(20);
 
@@ -125,8 +122,6 @@ console.log("userCatalogs:", JSON.stringify(userCatalogs, null, 2));
     const rawGenres = await getGenreList(language, "movie");
     if (Array.isArray(rawGenres)) {
       genres_movie = rawGenres.map(el => el.name).sort();
-    } else {
-      console.warn("⚠️ Geen geldige movie genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen movie genres:", err.message);
@@ -137,8 +132,6 @@ console.log("userCatalogs:", JSON.stringify(userCatalogs, null, 2));
     const rawGenres = await getGenreList(language, "series");
     if (Array.isArray(rawGenres)) {
       genres_series = rawGenres.map(el => el.name).sort();
-    } else {
-      console.warn("⚠️ Geen geldige series genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen series genres:", err.message);
@@ -148,26 +141,16 @@ console.log("userCatalogs:", JSON.stringify(userCatalogs, null, 2));
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  // Log MDBList config data
-  console.log("MDBList config:", JSON.stringify(config.mdblist, null, 2));
-
-console.log("userCatalogs BEFORE filtering:", userCatalogs.map(c => c.id));
-
   const filteredUserCatalogs = userCatalogs.filter(cat => {
     if (cat.id.startsWith("mdblist_")) {
       const listId = cat.id.replace("mdblist_", "");
       const isSelected = config.mdblist &&
         Array.isArray(config.mdblist.selectedLists) &&
         config.mdblist.selectedLists.includes(listId);
-
-      console.log(`Filtering mdblist catalog '${cat.id}' => selected: ${isSelected}`);
       return isSelected;
     }
     return true;
   });
-console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c => c.id));
-
-  console.log("Filtered user catalogs:", JSON.stringify(filteredUserCatalogs, null, 2));
 
   let catalogs = filteredUserCatalogs
     .filter(userCatalog => {
@@ -190,19 +173,16 @@ console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c 
       );
     });
 
-  // Voeg MDBList catalogi toe die geselecteerd zijn maar (misschien) niet in userCatalogs zaten
+  // Unieke MDBList-catalogs per mediatype
   if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
     const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
-    const existingCatalogIds = new Set(catalogs.map(c => c.id));
-
-    console.log("Selected MDBList lists:", JSON.stringify(selectedLists, null, 2));
-    console.log("Existing catalog IDs before adding selected MDBList:", Array.from(existingCatalogIds));
+    const existingCatalogKeys = new Set(catalogs.map(c => `${c.id}_${c.type}`));
 
     selectedLists.forEach(list => {
       const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
       const catalogId = `mdblist_${list.id}`;
-      if (!existingCatalogIds.has(catalogId)) {
-        console.log(`Adding MDBList catalog: ${catalogId} (${list.name})`);
+      const catalogKey = `${catalogId}_${type}`;
+      if (!existingCatalogKeys.has(catalogKey)) {
         catalogs.push({
           id: catalogId,
           type,
@@ -211,8 +191,6 @@ console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c 
         });
       }
     });
-
-    console.log("Catalog IDs after adding selected MDBList:", catalogs.map(c => c.id));
   }
 
   if (config.searchEnabled !== "false") {
@@ -230,7 +208,7 @@ console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c 
       extra: [{ name: "search", isRequired: true, options: [] }]
     };
 
-    catalogs = [...catalogs, searchCatalogMovie, searchCatalogSeries];
+    catalogs.push(searchCatalogMovie, searchCatalogSeries);
   }
 
   const activeConfigs = [
@@ -241,8 +219,6 @@ console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c 
     `Search: ${config.searchEnabled !== "false" ? 'Enabled' : 'Disabled'}`,
     `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
-
-  console.log("Final catalogs array:", catalogs.map(c => c.id));
 
   console.log("----- END getManifest -----");
 
