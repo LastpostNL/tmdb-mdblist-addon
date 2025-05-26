@@ -23,6 +23,7 @@ function generateArrayOfYears(maxYears) {
 
 function setOrderLanguage(language, languagesArray) {
   const languageObj = languagesArray.find((lang) => lang.iso_639_1 === language);
+  if (!languageObj) return languagesArray.map(l => l.name).sort();
   const fromIndex = languagesArray.indexOf(languageObj);
   const element = languagesArray.splice(fromIndex, 1)[0];
   languagesArray = languagesArray.sort((a, b) => (a.name > b.name ? 1 : -1));
@@ -33,7 +34,6 @@ function setOrderLanguage(language, languagesArray) {
 function loadTranslations(language) {
   const defaultTranslations = catalogsTranslations[DEFAULT_LANGUAGE] || {};
   const selectedTranslations = catalogsTranslations[language] || {};
-
   return { ...defaultTranslations, ...selectedTranslations };
 }
 
@@ -118,8 +118,6 @@ async function getManifest(config) {
     const rawGenres = await getGenreList(language, "movie");
     if (Array.isArray(rawGenres)) {
       genres_movie = rawGenres.map(el => el.name).sort();
-    } else {
-      console.warn("⚠️ Geen geldige movie genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen movie genres:", err.message);
@@ -130,8 +128,6 @@ async function getManifest(config) {
     const rawGenres = await getGenreList(language, "series");
     if (Array.isArray(rawGenres)) {
       genres_series = rawGenres.map(el => el.name).sort();
-    } else {
-      console.warn("⚠️ Geen geldige series genres ontvangen van TMDB.");
     }
   } catch (err) {
     console.warn("⚠️ Fout bij ophalen series genres:", err.message);
@@ -141,59 +137,47 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  // Filter userCatalogs om alleen geselecteerde MDBList catalogi mee te nemen
-  const filteredUserCatalogs = userCatalogs.filter(cat => {
-    if (cat.id.startsWith("mdblist_")) {
-      const listId = cat.id.replace("mdblist_", "");
-      return config.mdblist &&
-        Array.isArray(config.mdblist.selectedLists) &&
-        config.mdblist.selectedLists.includes(listId);
-    }
-    // Andere catalogi (zoals tmdb.*) gewoon behouden
-    return true;
-  });
+  // Filter userCatalogs om alleen ingeschakelde catalogi mee te nemen
+  const enabledCatalogs = userCatalogs.filter(cat => cat.enabled === true);
 
-  // Bouw catalogs array van gefilterde userCatalogs
-  let catalogs = filteredUserCatalogs
-    .filter(userCatalog => {
-      const catalogDef = getCatalogDefinition(userCatalog.id);
-      if (!catalogDef) return false;
-      if (catalogDef.requiresAuth && !sessionId) return false;
-      return true;
-    })
-    .map(userCatalog => {
-      const catalogDef = getCatalogDefinition(userCatalog.id);
-      const catalogOptions = getOptionsForCatalog(catalogDef, userCatalog.type, userCatalog.showInHome, options);
-      return createCatalog(
-        userCatalog.id,
-        userCatalog.type,
+  // Bouw de catalog array op basis van enabledCatalogs
+  let catalogs = [];
+
+  for (const cat of enabledCatalogs) {
+    // MDBList catalogi herkennen aan prefix "mdblist_"
+    if (cat.id.startsWith("mdblist_")) {
+      // mediatype en listId kun je eventueel parsen uit cat.id, bv mdblist_movie_1234 of mdblist.1234
+      // Hier gaan we uit van id mdblist_<listId> en mediatype in cat.type
+      catalogs.push({
+        id: cat.id,
+        type: cat.type,
+        name: `[MDBList] ${cat.name || cat.id.replace("mdblist_", "")}`,
+        extra: [{ name: "search", isRequired: false }]
+      });
+      continue;
+    }
+
+    // Voor overige catalogi halen we de definitie en opties op
+    const catalogDef = getCatalogDefinition(cat.id);
+    if (!catalogDef) continue;
+    if (catalogDef.requiresAuth && !sessionId) continue;
+
+    const catalogOptions = getOptionsForCatalog(catalogDef, cat.type, cat.showInHome, options);
+
+    catalogs.push(
+      createCatalog(
+        cat.id,
+        cat.type,
         catalogDef,
         catalogOptions,
         tmdbPrefix,
         translatedCatalogs,
-        userCatalog.showInHome
-      );
-    });
-
-  // Voeg MDBList catalogi toe die geselecteerd zijn maar (misschien) niet in userCatalogs zaten
-  if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
-    const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
-    const existingCatalogIds = new Set(catalogs.map(c => c.id));
-
-    selectedLists.forEach(list => {
-      const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
-      const catalogId = `mdblist_${list.id}`;
-      if (!existingCatalogIds.has(catalogId)) {
-        catalogs.push({
-          id: catalogId,
-          type,
-          name: `[MDBList] ${list.name}`,
-          extra: [{ name: "search", isRequired: false }]
-        });
-      }
-    });
+        cat.showInHome
+      )
+    );
   }
 
+  // Voeg TMDB zoekcatalogi toe als searchEnabled true (of niet false)
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
       id: "tmdb.search",
@@ -209,7 +193,7 @@ async function getManifest(config) {
       extra: [{ name: "search", isRequired: true, options: [] }]
     };
 
-    catalogs = [...catalogs, searchCatalogMovie, searchCatalogSeries];
+    catalogs.push(searchCatalogMovie, searchCatalogSeries);
   }
 
   const activeConfigs = [
@@ -248,7 +232,8 @@ function getDefaultCatalogs() {
     defaultTypes.map(type => ({
       id: `tmdb.${id}`,
       type,
-      showInHome: true
+      showInHome: true,
+      enabled: true
     }))
   );
 }
