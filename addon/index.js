@@ -4,6 +4,7 @@ const express = require("express");
 const favicon = require('serve-favicon');
 const path = require("path");
 const addon = express();
+const getMDBListItems = require("./lib/getMDBListItems");
 const analytics = require('./utils/analytics');
 const { getCatalog } = require("./lib/getCatalog");
 const { getSearch } = require("./lib/getSearch");
@@ -75,6 +76,34 @@ addon.get("/mdblist/lists/user", async (req, res) => {
   } catch (err) {
     console.error("MDBList fetch error:", err);
     res.status(500).json({ error: "Failed to fetch MDBList lists" });
+  }
+});
+
+// ─── MDBList-lijst items endpoint ─────────────────────────────────────────────
+addon.get("/mdblist/list/:listid/items", async (req, res) => {
+  try {
+    const { listid } = req.params;
+    const { limit, offset, apikey, filter_genre, sort, order, unified } = req.query;
+
+    if (!apikey) {
+      return res.status(400).json({ error: "apikey query parameter is required" });
+    }
+
+    const items = await getMDBListItems({
+      listid,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+      apikey,
+      filter_genre,
+      sort,
+      order,
+      unified: unified === "true" || unified === true,
+    });
+
+    res.json({ items });
+  } catch (err) {
+    console.error("MDBList items fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch MDBList list items" });
   }
 });
 
