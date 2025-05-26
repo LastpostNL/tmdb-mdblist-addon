@@ -57,7 +57,7 @@ const userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
     return { metas: [] };
   }
 
-  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}`;
+const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
   try {
