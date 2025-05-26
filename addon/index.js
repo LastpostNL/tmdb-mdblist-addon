@@ -1,159 +1,182 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+const express = require("express");
+const cors = require("cors");
 const favicon = require('serve-favicon');
-const path = require('path');
+const path = require("path");
 const addon = express();
 
-// CORS
+// ─── CORS ───────────────────────────────────────────────────────────────────────
 addon.use(cors());
 addon.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  res.header("Access-Control-Allow-Origin",  "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// Static files & Analytics
+// ─── STATISCHE BESTANDEN & ANALYTICS ─────────────────────────────────────────────
 const analytics = require('./utils/analytics');
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
 addon.use(express.static(path.join(__dirname, '../public')));
 addon.use(express.static(path.join(__dirname, '../dist')));
 
-// Lib imports
-const { getCatalog } = require('./lib/getCatalog');
-const { getSearch } = require('./lib/getSearch');
-const { getManifest, DEFAULT_LANGUAGE } = require('./lib/getManifest');
-const { getMeta } = require('./lib/getMeta');
-const { getTmdb } = require('./lib/getTmdb');
-const { cacheWrapMeta } = require('./lib/getCache');
-const { getTrending } = require('./lib/getTrending');
-const { parseConfig, getRpdbPoster, checkIfExists } = require('./utils/parseProps');
-const { getRequestToken, getSessionId } = require('./lib/getSession');
-const { getFavorites, getWatchList } = require('./lib/getPersonalLists');
-const { blurImage } = require('./utils/imageProcessor');
-const { getMDBLists } = require('./lib/getMDBList');
+// ─── LIB IMPORTS ────────────────────────────────────────────────────────────────
+const { getCatalog }     = require("./lib/getCatalog");
+const { getSearch }      = require("./lib/getSearch");
+const { getManifest, DEFAULT_LANGUAGE } = require("./lib/getManifest");
+const { getMeta }        = require("./lib/getMeta");
+const { getTmdb }        = require("./lib/getTmdb");
+const { cacheWrapMeta }  = require("./lib/getCache");
+const { getTrending }    = require("./lib/getTrending");
+const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProps");
+const { getRequestToken, getSessionId }         = require("./lib/getSession");
+const { getFavorites, getWatchList }            = require("./lib/getPersonalLists");
+const { blurImage }        = require('./utils/imageProcessor');
+const { getMDBLists }      = require('./lib/getMDBList');
 
-// Helpers
-const getCacheHeaders = opts => {
-  opts = opts || {};
-  if (!Object.keys(opts).length) return false;
-  const map = { cacheMaxAge: 'max-age', staleRevalidate: 'stale-while-revalidate', staleError: 'stale-if-error' };
-  return Object.entries(map)
-    .map(([prop, header]) => opts[prop] ? `${header}=${opts[prop]}` : false)
+// ─── HELPERS ───────────────────────────────────────────────────────────────────
+function getCacheHeaders(opts = {}) {
+  const mapping = {
+    cacheMaxAge:     "max-age",
+    staleRevalidate: "stale-while-revalidate",
+    staleError:      "stale-if-error",
+  };
+  return Object.entries(mapping)
+    .map(([opt, header]) => opts[opt] ? `${header}=${opts[opt]}` : false)
     .filter(Boolean)
-    .join(', ');
-};
+    .join(", ");
+}
 
-const respond = (res, data, opts) => {
-  const cacheControl = getCacheHeaders(opts);
-  if (cacheControl) res.setHeader('Cache-Control', `${cacheControl}, public`);
-  res.setHeader('Content-Type', 'application/json');
-  res.send(data);
-};
+function respond(res, data, opts = {}) {
+  const cc = getCacheHeaders(opts);
+  if (cc) res.setHeader("Cache-Control", `${cc}, public`);
+  res.type("application/json").send(data);
+}
 
-// Routes
-addon.get('/', (_, res) => res.redirect('/configure'));
+// ─── ROUTES ────────────────────────────────────────────────────────────────────
+// Homepage redirect naar configuratie
+addon.get("/", (_, res) => res.redirect("/configure"));
 
-addon.get('/request_token', async (req, res) => {
+// TMDB OAuth endpoints
+addon.get("/request_token", async (req, res) => {
   const token = await getRequestToken();
   respond(res, token);
 });
-
-addon.get('/session_id', async (req, res) => {
+addon.get("/session_id", async (req, res) => {
   const sid = await getSessionId(req.query.request_token);
   respond(res, sid);
 });
 
+// Config UI
 addon.use('/configure', express.static(path.join(__dirname, '../dist')));
 addon.get('/:catalogChoices?/configure', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-addon.get('/:catalogChoices?/manifest.json', async (req, res) => {
-  const config = parseConfig(req.params.catalogChoices);
+// Manifest
+addon.get("/:catalogChoices?/manifest.json", async (req, res) => {
+  const config   = parseConfig(req.params.catalogChoices);
   const manifest = await getManifest(config);
   respond(res, manifest, {
-    cacheMaxAge: 12 * 3600,
+    cacheMaxAge:     12 * 3600,
     staleRevalidate: 14 * 24 * 3600,
-    staleError: 30 * 24 * 3600,
+    staleError:      30 * 24 * 3600,
   });
 });
 
-addon.get('/:catalogChoices?/catalog/:type/:id/:extra?.json', async (req, res) => {
-  const { catalogChoices, type, id, extra } = req.params;
-  const config = parseConfig(catalogChoices);
-  const language = config.language || DEFAULT_LANGUAGE;
-  const sessionId = config.sessionId;
-  const rpdbkey = config.rpdbkey;
+// Catalog zonder extra
+addon.get("/:catalogChoices?/catalog/:type/:id.json", async (req, res) => {
+  return handleCatalog(req, res, /* extraMode */ false);
+});
 
-  // parse query params (genre, skip, search)
-  const params = extra
-    ? Object.fromEntries(new URLSearchParams(extra.slice(0, -5)).entries())
-    : {};
-  const skip = Number(params.skip) || 0;
-  const page = Math.floor(skip / 20) + 1;
+// Catalog met extra (genre, skip, search)
+addon.get("/:catalogChoices?/catalog/:type/:id/:extra.json", async (req, res) => {
+  return handleCatalog(req, res, /* extraMode */ true);
+});
 
-  let metas;
-  try {
-    if (params.search) {
-      metas = await getSearch(type, language, params.search, config);
-    } else {
-      switch (id) {
-        case 'tmdb.trending':
-          metas = await getTrending(type, language, page, params.genre);
-          break;
-        case 'tmdb.favorites':
-          metas = await getFavorites(type, language, page, params.genre, sessionId);
-          break;
-        case 'tmdb.watchlist':
-          metas = await getWatchList(type, language, page, params.genre, sessionId);
-          break;
-        default:
-          metas = await getCatalog({
-            id,
-            extraInputs: [
-              { name: 'skip', value: skip },
-              ...(params.genre ? [{ name: 'genre', value: params.genre }] : []),
-            ],
-            config,
-          });
-      }
-    }
-  } catch (e) {
-    return res.status(404).send(e.message || 'Not found');
+async function handleCatalog(req, res, extraMode) {
+  const { catalogChoices, type, id } = req.params;
+  const config     = parseConfig(catalogChoices);
+  const language   = config.language || DEFAULT_LANGUAGE;
+  const sessionId  = config.sessionId;
+  const rpdbkey    = config.rpdbkey;
+  let params = {};
+
+  if (extraMode) {
+    // extra blijft iets als "skip=20&genre=Action"
+    const extra = req.params.extra.replace(/\.json$/, "");
+    params = Object.fromEntries(new URLSearchParams(extra).entries());
   }
 
-  if (rpdbkey) {
-    metas.metas = await Promise.all(metas.metas.map(async el => {
-      const img = getRpdbPoster(type, el.id.replace('tmdb:', ''), language, rpdbkey);
-      el.poster = (await checkIfExists(img)) ? img : el.poster;
-      return el;
+  let result;
+  try {
+    if (params.search) {
+      result = await getSearch(type, language, params.search, config);
+    }
+    else if (id === "tmdb.trending") {
+      const page = Math.floor((Number(params.skip) || 0) / 20) + 1;
+      result = await getTrending(type, language, page, params.genre);
+    }
+    else if (id === "tmdb.favorites") {
+      const page = Math.floor((Number(params.skip) || 0) / 20) + 1;
+      result = await getFavorites(type, language, page, params.genre, sessionId);
+    }
+    else if (id === "tmdb.watchlist") {
+      const page = Math.floor((Number(params.skip) || 0) / 20) + 1;
+      result = await getWatchList(type, language, page, params.genre, sessionId);
+    }
+    else {
+      // generieke catalogen (popular, top, etc.) en MDBList
+      result = await getCatalog({
+        id,
+        extraInputs: [
+          ...(params.skip  ? [{ name:"skip",  value: Number(params.skip)  }] : []),
+          ...(params.genre ? [{ name:"genre",value: params.genre }] : []),
+          ...(params.search? [{ name:"search",value: params.search}] : []),
+        ],
+        config
+      });
+    }
+  }
+  catch (err) {
+    return res.status(404).send(err.message || "Not found");
+  }
+
+  // RPDB override
+  if (rpdbkey && result.metas) {
+    result.metas = await Promise.all(result.metas.map(async m => {
+      const tmdbId = m.id.split(":")[1];
+      const url    = getRpdbPoster(type, tmdbId, language, rpdbkey);
+      m.poster = (await checkIfExists(url)) ? url : m.poster;
+      return m;
     }));
   }
 
-  respond(res, metas, {
-    cacheMaxAge: 24 * 3600,
-    staleRevalidate: 7 * 24 * 3600,
-    staleError: 14 * 24 * 3600,
+  respond(res, result, {
+    cacheMaxAge:     24 * 3600,
+    staleRevalidate: 7  * 24 * 3600,
+    staleError:      14 * 24 * 3600,
   });
-});
+}
 
-addon.get('/:catalogChoices?/meta/:type/:id.json', async (req, res) => {
-  // … ongewijzigd …
-});
+// Meta endpoint (ongewijzigd t.o.v. origineel)
+// … je eigen code hier …
 
-addon.get('/mdblist/lists/user', async (req, res) => {
+// MDBList user-lists
+addon.get("/mdblist/lists/user", async (req, res) => {
   const apikey = req.query.apikey;
-  if (!apikey) return res.status(400).json({ error: 'No apikey provided' });
+  if (!apikey) {
+    return res.status(400).json({ error: "No apikey provided" });
+  }
   try {
     const lists = await getMDBLists(apikey);
-    if (!lists.length) return res.status(404).json({ error: 'No MDBList lists found' });
+    if (!lists.length) return res.status(404).json({ error: "No MDBList lists found" });
     res.json(lists);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch MDBList lists' });
+  }
+  catch {
+    res.status(500).json({ error: "Failed to fetch MDBList lists" });
   }
 });
 
