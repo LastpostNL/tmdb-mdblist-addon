@@ -75,13 +75,13 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
 
 function getCatalogDefinition(catalogId) {
   const [provider, type] = catalogId.split('.');
-  
+
   for (const category of Object.keys(CATALOG_TYPES)) {
     if (CATALOG_TYPES[category][type]) {
       return CATALOG_TYPES[category][type];
     }
   }
-  
+
   return null;
 }
 
@@ -90,7 +90,7 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
 
   const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
   const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
-  
+
   switch (catalogDef.nameKey) {
     case 'year':
       return years;
@@ -141,7 +141,20 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  let catalogs = userCatalogs
+  // Filter userCatalogs om alleen geselecteerde MDBList catalogi mee te nemen
+  const filteredUserCatalogs = userCatalogs.filter(cat => {
+    if (cat.id.startsWith("mdblist_")) {
+      const listId = cat.id.replace("mdblist_", "");
+      return config.mdblist &&
+        Array.isArray(config.mdblist.selectedLists) &&
+        config.mdblist.selectedLists.includes(listId);
+    }
+    // Andere catalogi (zoals tmdb.*) gewoon behouden
+    return true;
+  });
+
+  // Bouw catalogs array van gefilterde userCatalogs
+  let catalogs = filteredUserCatalogs
     .filter(userCatalog => {
       const catalogDef = getCatalogDefinition(userCatalog.id);
       if (!catalogDef) return false;
@@ -151,7 +164,6 @@ async function getManifest(config) {
     .map(userCatalog => {
       const catalogDef = getCatalogDefinition(userCatalog.id);
       const catalogOptions = getOptionsForCatalog(catalogDef, userCatalog.type, userCatalog.showInHome, options);
-      
       return createCatalog(
         userCatalog.id,
         userCatalog.type,
@@ -162,6 +174,25 @@ async function getManifest(config) {
         userCatalog.showInHome
       );
     });
+
+  // Voeg MDBList catalogi toe die geselecteerd zijn maar (misschien) niet in userCatalogs zaten
+  if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
+    const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
+    const existingCatalogIds = new Set(catalogs.map(c => c.id));
+
+    selectedLists.forEach(list => {
+      const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
+      const catalogId = `mdblist_${list.id}`;
+      if (!existingCatalogIds.has(catalogId)) {
+        catalogs.push({
+          id: catalogId,
+          type,
+          name: `[MDBList] ${list.name}`,
+          extra: [{ name: "search", isRequired: false }]
+        });
+      }
+    });
+  }
 
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
@@ -190,43 +221,12 @@ async function getManifest(config) {
     `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
 
-// Voeg MDBList lijsten toe als catalogi, indien correct geconfigureerd
-if (
-  config.mdblist &&
-  Array.isArray(config.mdblist.lists) &&
-  Array.isArray(config.mdblist.selectedLists)
-) {
-  const selectedLists = config.mdblist.lists.filter((list) =>
-    config.mdblist.selectedLists.includes(list.id)
-  );
-
-  // Verwijder dubbele naam + mediatype-combinaties
-  const seen = new Set();
-  const uniqueLists = selectedLists.filter((list) => {
-    const key = `${list.name}_${list.mediatype}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  uniqueLists.forEach((list) => {
-    const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
-
-    catalogs.push({
-      id: `mdblist_${list.id}`,
-      type,
-      name: `[MDBList] ${list.name}`,
-      extra: [{ name: "search", isRequired: false }]
-    });
-  });
-}
-
   return {
     id: packageJson.name,
     version: packageJson.version,
     favicon: `${process.env.HOST_NAME}/favicon.png`,
     logo: `${process.env.HOST_NAME}/logo.png`,
-    background: `${process.env.HOST_NAME}/background.png`,  
+    background: `${process.env.HOST_NAME}/background.png`,
     name: "The Movie Database",
     description: "Fork of the TMDB addon for use with Omni (https://omni.stkc.win). Current settings: " + activeConfigs,
     resources: ["catalog", "meta"],
@@ -243,8 +243,8 @@ if (
 function getDefaultCatalogs() {
   const defaultTypes = ['movie', 'series'];
   const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
-  
-  return defaultCatalogs.flatMap(id => 
+
+  return defaultCatalogs.flatMap(id =>
     defaultTypes.map(type => ({
       id: `tmdb.${id}`,
       type,
