@@ -14,6 +14,8 @@ const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProp
 const { getRequestToken, getSessionId } = require("./lib/getSession");
 const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
 const { blurImage } = require('./utils/imageProcessor');
+const { getMDBLists } = require("./lib/getMDBList");  // bovenaan, bij de andere requires
+
 
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
@@ -57,6 +59,20 @@ addon.get("/", function (_, res) {
 addon.get("/request_token", async function (req, res) {
   const requestToken = await getRequestToken()
   respond(res, requestToken);
+});
+
+addon.get("/mdblist/lists/user", async (req, res) => {
+  const userToken = req.query.apikey;
+  if (!userToken) {
+    return res.status(400).json({ error: "API key missing" });
+  }
+  try {
+    const lists = await getMDBLists(userToken);
+    res.json(lists);
+  } catch (error) {
+    console.error("Error fetching MDB lists:", error);
+    res.status(500).json({ error: "Failed to fetch MDB lists" });
+  }
 });
 
 addon.get("/session_id", async function (req, res) {
