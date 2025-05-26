@@ -49,7 +49,7 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
 async function getMDBList(type, id, page, language, config) {
   const listId = id;
   const safeConfig = config || {};
-const userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
+  const userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
   const tmdbApiKey = safeConfig.tmdbApiKey;
 
   if (!userToken) {
@@ -57,7 +57,8 @@ const userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
     return { metas: [] };
   }
 
-const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}&append_to_response=genre,poster`;
+  // Append poster & genre ophalen via API
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
   try {
@@ -75,9 +76,14 @@ const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}&a
       return { metas: [] };
     }
 
+    // Gebruik direct de poster & genres uit MDBList indien aanwezig, fallback naar TMDb alleen als TMDb API key aanwezig is
     if (tmdbApiKey) {
       const metas = [];
       for (const item of itemsArray) {
+        if (item.poster && item.genres) {
+          metas.push(parseMDBListItem(item, type));
+          continue;
+        }
         if (item.imdb_id) {
           const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
           if (tmdbDetails) {
