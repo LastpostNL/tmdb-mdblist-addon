@@ -5,17 +5,19 @@ const { parseMedia } = require("../utils/parseProps");
 async function getMDBLists(userToken) {
   try {
     const url = `https://api.mdblist.com/lists/user?apikey=${userToken}`;
-    console.log("Fetching from:", url);
+    console.log("Fetching MDBList user lists from:", url);
 
     const response = await fetch(url);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Fetch error:", errorText);
+      console.error("Fetch error while getting user lists:", errorText);
       throw new Error(`HTTP error ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("Fetched lists:", data);
+    console.log("Fetched MDBList user lists:", data);
+
+    // Return array of lists or empty array
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("Error in getMDBLists():", err);
@@ -23,35 +25,35 @@ async function getMDBLists(userToken) {
   }
 }
 
-// Haalt één specifieke lijst op en retourneert metas[]
+// Haalt één specifieke lijst op en retourneert object { metas: [] }
 async function getMDBList(type, language, page, id, config) {
-  const listId = id.replace("mdblist.", ""); // bijvoorbeeld: mdblist.my_list_123 → my_list_123
+  const listId = id.replace("mdblist.", ""); // strip prefix mdblist.
   const userToken = config.mdblistUserToken;
 
   if (!userToken) {
-    console.error("MDBList user token is missing in config.");
+    console.error("MDBList user token missing in config.");
     return { metas: [] };
   }
 
   const url = `https://api.mdblist.com/lists/user/${listId}?apikey=${userToken}`;
-  console.log(`Fetching MDBList: ${url}`);
+  console.log(`Fetching MDBList single list from: ${url}`);
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Error fetching list:", errorText);
+      console.error("Error fetching MDBList list:", errorText);
       return { metas: [] };
     }
 
     const data = await response.json();
 
-    // Kies type 'movie' of 'show' op basis van entries in de lijst
-    const filtered = (Array.isArray(data.items) ? data.items : []).filter(item => {
+    // Filter items by type (movie/show)
+    const filteredItems = (Array.isArray(data.items) ? data.items : []).filter(item => {
       return type === "movie" ? item.type === "movie" : item.type === "show";
     });
 
-    const metas = filtered.map(item => parseMedia(item, type));
+    const metas = filteredItems.map(item => parseMedia(item, type));
 
     return { metas };
   } catch (err) {
