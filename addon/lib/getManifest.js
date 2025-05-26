@@ -4,7 +4,7 @@ const { getLanguages } = require("./getLanguages");
 const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
-const DEFAULT_LANGUAGE = "en-US");
+const DEFAULT_LANGUAGE = "nl-NL";  // <-- hier haakje weggehaald
 
 // Fallback voor HOST_NAME
 const HOST_NAME = process.env.HOST_NAME || "https://tmdb-mdblist-addon.onrender.com";
