@@ -17,6 +17,7 @@ interface AddonConfig {
   }>;
 }
 
+
 // In-memory config
 let currentConfig: AddonConfig = {};
 
@@ -28,6 +29,11 @@ export function getConfig(): AddonConfig {
 // Setter
 export function setConfig(newConfig: AddonConfig) {
   currentConfig = newConfig;
+}
+
+// Helper om enkel de ingeschakelde catalogi terug te geven
+export function getEnabledCatalogs() {
+  return currentConfig.catalogs?.filter(catalog => catalog.enabled) || [];
 }
 
 // URL generator
