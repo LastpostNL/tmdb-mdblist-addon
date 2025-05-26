@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useConfig } from "@/contexts/ConfigContext";
 import { baseCatalogs, authCatalogs, streamingCatalogs } from "@/data/catalogs";
 import { 
@@ -50,9 +50,15 @@ const CatalogColumn = ({
 );
 
 const Catalogs = () => {
-  const { sessionId, mdblistkey, streaming, catalogs, setCatalogs } = useConfig();
-
-  const [userMDBLists, setUserMDBLists] = useState([]);
+  const { 
+    sessionId, 
+    mdblistkey, 
+    streaming, 
+    catalogs, 
+    setCatalogs, 
+    mdblistLists, 
+    mdblistSelectedLists 
+  } = useConfig();
 
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: {
@@ -69,46 +75,23 @@ const Catalogs = () => {
 
   const sensors = useSensors(mouseSensor, touchSensor);
 
+  // Voeg alle basiscatalogi toe en geselecteerde MDBList catalogi
   useEffect(() => {
-    const fetchUserMDBLists = async () => {
-      if (!mdblistkey) {
-        setUserMDBLists([]);
-        return;
-      }
+    // Maak catalog entries voor geselecteerde MDBList-lijsten
+    const mdblistCatalogs = mdblistLists
+      .filter(list => mdblistSelectedLists.includes(list.id))
+      .map(list => ({
+        id: `mdblist.${list.id}`,
+        name: list.name,
+        type: list.mediatype === "movie" ? "movie" : "series",
+        enabled: false,
+        showInHome: false,
+      }));
 
-      try {
-        const res = await fetch(`/mdblist/lists/user?apikey=${mdblistkey}`);
-        if (!res.ok) throw new Error("Failed to fetch MDBList lists");
-
-        const data = await res.json(); // Verwacht array van { id, name }
-
-        const lists = data.flatMap((list) => [
-          {
-            id: `mdblist.${list.id}`,
-            name: list.name,
-            type: "movie",
-          },
-          {
-            id: `mdblist.${list.id}`,
-            name: list.name,
-            type: "series",
-          },
-        ]);
-
-        setUserMDBLists(lists);
-      } catch (err) {
-        console.error("Error loading MDBList catalogs:", err);
-      }
-    };
-
-    fetchUserMDBLists();
-  }, [mdblistkey]);
-
-  useEffect(() => {
     const allCatalogs = [
       ...baseCatalogs,
       ...(sessionId ? authCatalogs : []),
-      ...userMDBLists,
+      ...mdblistCatalogs,
       ...(streaming?.length
         ? streaming.flatMap((serviceId) => streamingCatalogs[serviceId] || [])
         : []),
@@ -131,9 +114,12 @@ const Catalogs = () => {
         })),
       ];
     });
-  }, [sessionId, userMDBLists, streaming]);
+  }, [sessionId, streaming, mdblistLists, mdblistSelectedLists, setCatalogs]);
 
-  const catalogConfigs = catalogs.reduce((acc, config) => {
+  // Filter alleen de ingeschakelde catalogi om te tonen
+  const enabledCatalogs = catalogs.filter(c => c.enabled);
+
+  const catalogConfigs = enabledCatalogs.reduce((acc, config) => {
     const key = `${config.id}-${config.type}`;
     acc[key] = {
       enabled: config.enabled,
@@ -175,7 +161,7 @@ const Catalogs = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CatalogColumn
           title="Movies"
-          catalogs={catalogs.filter((c) => c.type === "movie")}
+          catalogs={enabledCatalogs.filter((c) => c.type === "movie")}
           catalogConfigs={catalogConfigs}
           onCatalogChange={handleCatalogChange}
           onDragEnd={handleDragEnd}
@@ -183,7 +169,7 @@ const Catalogs = () => {
         />
         <CatalogColumn
           title="TV Shows"
-          catalogs={catalogs.filter((c) => c.type === "series")}
+          catalogs={enabledCatalogs.filter((c) => c.type === "series")}
           catalogConfigs={catalogConfigs}
           onCatalogChange={handleCatalogChange}
           onDragEnd={handleDragEnd}
