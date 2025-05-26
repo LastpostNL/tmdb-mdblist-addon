@@ -4,10 +4,10 @@ const moviedb = new MovieDb(process.env.TMDB_API);
 const { getGenreList } = require("./getGenreList");
 const { getLanguages } = require("./getLanguages");
 const { parseMedia } = require("../utils/parseProps");
+const { getMDBList } = require("./getMDBList");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 
 async function getCatalog(type, language, page, id, genre, config) {
-const { getMDBList } = require("./getMDBList");
   // MDBList ondersteuning
   if (id.startsWith("mdblist_")) {
     return await getMDBList(type, language, page, id, config);
