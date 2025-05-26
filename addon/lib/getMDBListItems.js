@@ -1,4 +1,3 @@
-const fetch = require("node-fetch");
 const { parseMDBListItemsToStremioItems } = require("./parseProps");
 
 async function getMDBListItems({ listid, limit = 100, offset = 0, apikey, filter_genre, sort, order, unified = true }) {
