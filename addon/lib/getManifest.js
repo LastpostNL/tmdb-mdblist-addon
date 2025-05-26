@@ -164,6 +164,17 @@ if (config.mdblistUserToken) {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Hardcoded testlijst toevoegen
+catalogs.push({
+  id: "mdblist_komt-uit-nederland",
+  type: "movie", // of "series" als het een serie-lijst is
+  name: "MDBList Test NL",
+  pageSize: 20,
+  extra: [{ name: "skip" }],
+  poster: "https://mdblist.com/images/lists/komt-uit-nederland.jpg",
+  background: "https://mdblist.com/images/lists/komt-uit-nederland-bg.jpg",
+  showInHome: true
+});
 
   // Metadata beschrijving
   const activeConfigs = [
