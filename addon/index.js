@@ -57,14 +57,6 @@ addon.get("/request_token", async function (req, res) {
   respond(res, requestToken);
 });
 
-addon.get('/manifest.json', (req, res) => {
-  // bv. vraag mdblistkey op uit query
-  const mdblistkey = req.query.mdblistkey;
-  // genereer manifest object, bijvoorbeeld met mdblistkey verwerkt
-  const manifest = getManifest(mdblistkey); // moet je zelf schrijven
-  res.json(manifest);
-});
-
 addon.get("/:catalogChoices?/manifest.json", async function (req, res) {
     const { catalogChoices } = req.params;
     const config = parseConfig(catalogChoices);
