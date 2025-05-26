@@ -129,7 +129,7 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (re
       if (id.startsWith("mdblist_")) {
         // Hier halen we items op uit een MDBList
         const listSlug = id.substring("mdblist_".length);
-        metas = await getMDBList(type, listSlug, page, language);
+        metas = await getMDBList(type, listSlug, page, language, config);
       } else {
         switch (id) {
           case "tmdb.trending":
