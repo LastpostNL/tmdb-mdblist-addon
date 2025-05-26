@@ -57,6 +57,27 @@ addon.get("/request_token", async function (req, res) {
   respond(res, requestToken);
 });
 
+addon.get('/manifest.json', (req, res) => {
+  // bv. vraag mdblistkey op uit query
+  const mdblistkey = req.query.mdblistkey;
+  // genereer manifest object, bijvoorbeeld met mdblistkey verwerkt
+  const manifest = getManifest(mdblistkey); // moet je zelf schrijven
+  res.json(manifest);
+});
+
+addon.get("/:catalogChoices?/manifest.json", async function (req, res) {
+    const { catalogChoices } = req.params;
+    const config = parseConfig(catalogChoices);
+    const manifest = await getManifest(config);
+    
+    const cacheOpts = {
+        cacheMaxAge: 12 * 60 * 60,
+        staleRevalidate: 14 * 24 * 60 * 60, 
+        staleError: 30 * 24 * 60 * 60, 
+    };
+    respond(res, manifest, cacheOpts);
+});
+
 // Endpoint om persoonlijke MDBLists op te halen
 addon.get("/mdblist/lists/user", async (req, res) => {
   const userToken = req.query.apikey;
