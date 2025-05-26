@@ -199,7 +199,7 @@ function parseMedia(el, type, genreList = []) {
 // Nieuwe functie om MDBList-items te parsen naar Stremio metas
 function parseMDBListItem(item, type) {
   return {
-    id: `mdblist_${item.id}`,
+    id: `tmdb:${item.id}`,
     type,
     name: item.title,
     year: item.release_year,
