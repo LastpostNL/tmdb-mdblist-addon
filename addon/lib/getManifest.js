@@ -236,6 +236,7 @@ async function getManifest(config) {
 
   console.log("Final catalogs IDs:", catalogs.map(c => c.id));
   console.log("----- END getManifest -----");
+console.log("HOST_NAME:", process.env.HOST_NAME);
 
   return {
     id: packageJson.name,
