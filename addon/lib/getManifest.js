@@ -139,19 +139,30 @@ async function getManifest(config) {
     });
   }
 
-  // ─── HIER MDBList toevoegen ───────────────────────────────────────────────────
-  userCatalogs
-    .filter(uc => uc.id.startsWith("mdblist_"))
-    .forEach(uc => {
+// ─── HIER MDBList toevoegen ───────────────────────────────────────────────────
+const { getMDBLists } = require("./getMDBList");
+
+if (config.mdblistUserToken) {
+  try {
+    const mdblistCatalogs = await getMDBLists(config.mdblistUserToken);
+    mdblistCatalogs.forEach(list => {
+      const id = `mdblist_${list.slug}`;
+      const name = list.name || list.slug;
+      const type = list.type === 'show' ? 'series' : 'movie';
+
       catalogs.push({
-        id: uc.id,
-        type: uc.type,
-        name: `MDBList - ${uc.name}`,
+        id,
+        type,
+        name: `MDBList - ${name}`,
         pageSize: 20,
         extra: [{ name: "skip" }]
       });
     });
-  // ──────────────────────────────────────────────────────────────────────────────
+  } catch (err) {
+    console.error("MDBList catalog fetch failed:", err.message);
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
   // Metadata beschrijving
   const activeConfigs = [
