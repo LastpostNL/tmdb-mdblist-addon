@@ -118,7 +118,14 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async (req, res) =
           metas = await getWatchList(type, language, +params.skip/20+1, params.genre, sessionId);
           break;
         default:
-          metas = await getCatalog(type, language, +params.skip/20+1, id, params.genre, config);
+metas = await getCatalog({
+  id,
+  extraInputs: [
+    { name: "skip", value: Number(params.skip || 0) },
+    ...(params.genre ? [{ name: "genre", value: params.genre }] : []),
+  ],
+  config,
+});
       }
     }
   } catch {
