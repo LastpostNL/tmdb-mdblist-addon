@@ -195,6 +195,22 @@ function parseMedia(el, type, genreList = []) {
     description: el.overview,
   };
 }
+
+// Nieuwe functie om MDBList-items te parsen naar Stremio metas
+function parseMDBListItem(item, type) {
+  return {
+    id: `mdblist_${item.id}`,
+    type,
+    name: item.title,
+    year: item.release_year,
+    imdb_id: item.imdb_id || undefined,
+    poster: null,
+    background: null,
+    posterShape: "regular",
+    description: "",
+  };
+}
+
 function getRpdbPoster(type, id, language, rpdbkey) {
   const tier = rpdbkey.split("-")[0]
   const lang = language.split("-")[0]
@@ -236,7 +252,6 @@ function parseMDBListItemsToStremioItems(data) {
   return results;
 }
 
-
 async function checkIfExists(rpdbImage) {
   return new Promise((resolve) => {
     urlExists(rpdbImage, (err, exists) => {
@@ -269,6 +284,8 @@ module.exports = {
   parseConfig,
   parsePoster,
   parseMedia,
+  parseMDBListItem,
   getRpdbPoster,
+  parseMDBListItemsToStremioItems,
   checkIfExists
 };
