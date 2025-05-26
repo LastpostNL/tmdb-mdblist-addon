@@ -25,8 +25,8 @@ async function getMDBLists(userToken) {
 }
 
 // Haalt één specifieke lijst op en retourneert object { metas: [] }
-async function getMDBList(type, language, page, id, config) {
-const listId = id.replace("mdblist.", ""); // prefix weghalen
+async function getMDBList(type, id, page, language, config) {
+const listId = id;
 const safeConfig = config || {};
 const userToken = safeConfig.mdblistUserToken;
 
