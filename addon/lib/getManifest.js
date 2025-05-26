@@ -190,6 +190,37 @@ async function getManifest(config) {
     `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
 
+// Voeg MDBList lijsten toe als catalogi, indien correct geconfigureerd
+if (
+  config.mdblist &&
+  Array.isArray(config.mdblist.lists) &&
+  Array.isArray(config.mdblist.selectedLists)
+) {
+  const selectedLists = config.mdblist.lists.filter((list) =>
+    config.mdblist.selectedLists.includes(list.id)
+  );
+
+  // Verwijder dubbele naam + mediatype-combinaties
+  const seen = new Set();
+  const uniqueLists = selectedLists.filter((list) => {
+    const key = `${list.name}_${list.mediatype}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  uniqueLists.forEach((list) => {
+    const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
+
+    catalogs.push({
+      id: `mdblist_${list.id}`,
+      type,
+      name: `[MDBList] ${list.name}`,
+      extra: [{ name: "search", isRequired: false }]
+    });
+  });
+}
+
   return {
     id: packageJson.name,
     version: packageJson.version,
