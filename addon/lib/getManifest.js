@@ -173,25 +173,24 @@ async function getManifest(config) {
       );
     });
 
-  // Unieke MDBList-catalogs per mediatype
-  if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
-    const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
-    const existingCatalogKeys = new Set(catalogs.map(c => `${c.id}_${c.type}`));
+ // Voeg geselecteerde MDBList-lijsten toe die nog niet in userCatalogs staan
+if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
+  const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
+  const existingCatalogIds = new Set(userCatalogs.map(c => c.id));
 
-    selectedLists.forEach(list => {
-      const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
-      const catalogId = `mdblist_${list.id}`;
-      const catalogKey = `${catalogId}_${type}`;
-      if (!existingCatalogKeys.has(catalogKey)) {
-        catalogs.push({
-          id: catalogId,
-          type,
-          name: `[MDBList] ${list.name}`,
-          extra: [{ name: "search", isRequired: false }]
-        });
-      }
-    });
-  }
+  selectedLists.forEach(list => {
+    const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
+    const catalogId = `mdblist_${list.id}`;
+    if (!existingCatalogIds.has(catalogId)) {
+      catalogs.push({
+        id: catalogId,
+        type,
+        name: `[MDBList] ${list.name}`,
+        extra: [{ name: "search", isRequired: false }]
+      });
+    }
+  });
+}
 
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
