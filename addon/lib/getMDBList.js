@@ -1,5 +1,4 @@
 const { parseMDBListItem, parseMedia } = require("../utils/parseProps");
-const fetch = require("node-fetch"); // Als fetch niet global is
 
 // Haalt alle lijsten op van de gebruiker voor in de configpagina
 async function getMDBLists(userToken) {
