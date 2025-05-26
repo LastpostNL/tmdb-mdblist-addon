@@ -205,6 +205,38 @@ function getRpdbPoster(type, id, language, rpdbkey) {
   }
 }
 
+function parseMDBListItemsToStremioItems(data) {
+  const results = [];
+
+  if (data.movies) {
+    for (const m of data.movies) {
+      results.push({
+        id: String(m.id),
+        type: 'movie',
+        name: m.title,
+        year: m.release_year,
+        imdb_id: m.imdb_id || undefined,
+        // poster kan je eventueel later toevoegen via extra API call
+      });
+    }
+  }
+
+  if (data.shows) {
+    for (const s of data.shows) {
+      results.push({
+        id: String(s.id),
+        type: 'series',
+        name: s.title,
+        year: s.release_year,
+        imdb_id: s.imdb_id || undefined,
+      });
+    }
+  }
+
+  return results;
+}
+
+
 async function checkIfExists(rpdbImage) {
   return new Promise((resolve) => {
     urlExists(rpdbImage, (err, exists) => {
