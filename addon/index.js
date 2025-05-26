@@ -17,7 +17,7 @@ const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProp
 const { getRequestToken, getSessionId } = require("./lib/getSession");
 const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
 const { blurImage } = require('./utils/imageProcessor');
-const { getMDBLists, getMDBListItems } = require("./lib/getMDBList");  // Let op: getMDBListItems toegevoegd
+const { getMDBLists, getMDBList } = require("./lib/getMDBList");
 
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
@@ -129,7 +129,7 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (re
       if (id.startsWith("mdblist_")) {
         // Hier halen we items op uit een MDBList
         const listSlug = id.substring("mdblist_".length);
-        metas = await getMDBListItems(type, listSlug, page, language);
+        metas = await getMDBList(type, listSlug, page, language);
       } else {
         switch (id) {
           case "tmdb.trending":
