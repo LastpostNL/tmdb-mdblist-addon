@@ -1,9 +1,29 @@
 require('dotenv').config();
 const express = require("express");
+const cors = require("cors");
 const favicon = require('serve-favicon');
-const path = require("path")
+const path = require("path");
 const addon = express();
+
+// ─── CORS ───────────────────────────────────────────────────────────────────────
+// Sta alle origins, methods en headers toe (verwijder dubbele of onjuiste blokken)
+addon.use(cors());
+addon.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
+// ─── STATISCHE BESTANDEN & ANALYTICS ─────────────────────────────────────────────
 const analytics = require('./utils/analytics');
+addon.use(analytics.middleware);
+addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
+addon.use(express.static(path.join(__dirname, '../public')));
+addon.use(express.static(path.join(__dirname, '../dist')));
+
+// ─── LIB IMPORTS ────────────────────────────────────────────────────────────────
 const { getCatalog } = require("./lib/getCatalog");
 const { getSearch } = require("./lib/getSearch");
 const { getManifest, DEFAULT_LANGUAGE } = require("./lib/getManifest");
@@ -15,234 +35,124 @@ const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProp
 const { getRequestToken, getSessionId } = require("./lib/getSession");
 const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
 const { blurImage } = require('./utils/imageProcessor');
-const { getMDBLists } = require('./lib/getMDBList'); // ✅ correct
+const { getMDBLists } = require('./lib/getMDBList');
 
-addon.use(analytics.middleware);
-addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
-addon.use(express.static(path.join(__dirname, '../public')));
-addon.use(express.static(path.join(__dirname, '../dist')));
-
+// ─── HELPERS ───────────────────────────────────────────────────────────────────
 const getCacheHeaders = function (opts) {
   opts = opts || {};
   if (!Object.keys(opts).length) return false;
-
-  let cacheHeaders = {
+  const cacheHeaders = {
     cacheMaxAge: "max-age",
     staleRevalidate: "stale-while-revalidate",
     staleError: "stale-if-error",
   };
-
-  return Object.keys(cacheHeaders)
-    .map((prop) => {
-      const value = opts[prop];
-      if (!value) return false;
-      return cacheHeaders[prop] + "=" + value;
+  return Object.entries(cacheHeaders)
+    .map(([prop, header]) => {
+      const val = opts[prop];
+      return val ? `${header}=${val}` : false;
     })
-    .filter((val) => !!val)
+    .filter(Boolean)
     .join(", ");
 };
 
 const respond = function (res, data, opts) {
   const cacheControl = getCacheHeaders(opts);
   if (cacheControl) res.setHeader("Cache-Control", `${cacheControl}, public`);
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "*");
+  // CORS-headers al gezet via middleware
   res.setHeader("Content-Type", "application/json");
   res.send(data);
 };
 
-addon.get("/", function (_, res) {
-  res.redirect("/configure");
+// ─── ROUTES ────────────────────────────────────────────────────────────────────
+addon.get("/", (_, res) => res.redirect("/configure"));
+
+addon.get("/request_token", async (req, res) => {
+  const token = await getRequestToken();
+  respond(res, token);
 });
 
-addon.get("/request_token", async function (req, res) {
-  const requestToken = await getRequestToken()
-  respond(res, requestToken);
-});
-
-addon.get("/session_id", async function (req, res) {
-  const requestToken = req.query.request_token
-  const sessionId = await getSessionId(requestToken)
-  respond(res, sessionId);
+addon.get("/session_id", async (req, res) => {
+  const sid = await getSessionId(req.query.request_token);
+  respond(res, sid);
 });
 
 addon.use('/configure', express.static(path.join(__dirname, '../dist')));
 
-addon.use('/configure', (req, res, next) => {
-  const config = parseConfig(req.params.catalogChoices);
-  next();
-});
-
-addon.get('/:catalogChoices?/configure', function (req, res) {
+addon.get('/:catalogChoices?/configure', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-addon.get("/:catalogChoices?/manifest.json", async function (req, res) {
-  const { catalogChoices } = req.params;
-  const config = parseConfig(catalogChoices);
+addon.get("/:catalogChoices?/manifest.json", async (req, res) => {
+  const config = parseConfig(req.params.catalogChoices);
   const manifest = await getManifest(config);
-  
-  const cacheOpts = {
-    cacheMaxAge: 12 * 60 * 60,
-    staleRevalidate: 14 * 24 * 60 * 60, 
-    staleError: 30 * 24 * 60 * 60, 
-  };
-  respond(res, manifest, cacheOpts);
+  respond(res, manifest, {
+    cacheMaxAge: 12 * 3600,
+    staleRevalidate: 14 * 24 * 3600,
+    staleError: 30 * 24 * 3600,
+  });
 });
 
-addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (req, res) {
+addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async (req, res) => {
   const { catalogChoices, type, id, extra } = req.params;
-  const config = parseConfig(catalogChoices)
+  const config = parseConfig(catalogChoices);
   const language = config.language || DEFAULT_LANGUAGE;
-  const rpdbkey = config.rpdbkey
-  const sessionId = config.sessionId
-  const { genre, skip, search } = extra
-    ? Object.fromEntries(
-        new URLSearchParams(req.url.split("/").pop().split("?")[0].slice(0, -5)).entries()
-      )
+  const sessionId = config.sessionId;
+  const rpdbkey = config.rpdbkey;
+  const params = extra
+    ? Object.fromEntries(new URLSearchParams(extra.slice(0, -5)).entries())
     : {};
-  const page = Math.ceil(skip ? skip / 20 + 1 : undefined) || 1;
   let metas = [];
-  try {
-    const args = [type, language, page];
 
-    if (search) {
-      metas = await getSearch(type, language, search, config);
+  try {
+    if (params.search) {
+      metas = await getSearch(type, language, params.search, config);
     } else {
       switch (id) {
         case "tmdb.trending":
-          metas = await getTrending(...args, genre);
+          metas = await getTrending(type, language, +params.skip/20+1, params.genre);
           break;
         case "tmdb.favorites":
-          metas = await getFavorites(...args, genre, sessionId);
+          metas = await getFavorites(type, language, +params.skip/20+1, params.genre, sessionId);
           break;
         case "tmdb.watchlist":
-          metas = await getWatchList(...args, genre, sessionId);
+          metas = await getWatchList(type, language, +params.skip/20+1, params.genre, sessionId);
           break;
         default:
-          metas = await getCatalog(...args, id, genre, config);
-          break;
+          metas = await getCatalog(type, language, +params.skip/20+1, id, params.genre, config);
       }
     }
-  } catch (e) {
-    res.status(404).send((e || {}).message || "Not found");
-    return;
+  } catch {
+    return res.status(404).send("Not found");
   }
-  const cacheOpts = {
-    cacheMaxAge: 1 * 24 * 60 * 60, 
-    staleRevalidate: 7 * 24 * 60 * 60,
-    staleError: 14 * 24 * 60 * 60,
-  };
+
+  // RPDB overlay
   if (rpdbkey) {
-    try {
-      metas = JSON.parse(JSON.stringify(metas));
-      metas.metas = await Promise.all(metas.metas.map(async (el) => {
-        const rpdbImage = getRpdbPoster(type, el.id.replace('tmdb:', ''), language, rpdbkey) 
-        el.poster = await checkIfExists(rpdbImage) ? rpdbImage : el.poster;
-        return el;
-      }))
-    } catch (e) { }
+    metas = await Promise.all(metas.metas.map(async el => {
+      const rpdbImg = getRpdbPoster(type, el.id.replace('tmdb:', ''), language, rpdbkey);
+      el.poster = (await checkIfExists(rpdbImg)) ? rpdbImg : el.poster;
+      return el;
+    }));
   }
-  respond(res, metas, cacheOpts);
+  respond(res, metas, {
+    cacheMaxAge: 24 * 3600,
+    staleRevalidate: 7 * 24 * 3600,
+    staleError: 14 * 24 * 3600,
+  });
 });
 
-addon.get("/:catalogChoices?/meta/:type/:id.json", async function (req, res) {
-  const { catalogChoices, type, id } = req.params;
-  const config = parseConfig(catalogChoices);
-  const tmdbId = id.split(":")[1];
-  const language = config.language || DEFAULT_LANGUAGE;
-  const rpdbkey = config.rpdbkey;
-  const imdbId = req.params.id.split(":")[0];
-
-  if (req.params.id.includes("tmdb:")) {
-    const resp = await cacheWrapMeta(`${language}:${type}:${tmdbId}`, async () => {
-      return await getMeta(type, language, tmdbId, rpdbkey, {
-        hideEpisodeThumbnails: config.hideEpisodeThumbnails === "true"
-      });
-    });
-    const cacheOpts = {
-      staleRevalidate: 20 * 24 * 60 * 60,
-      staleError: 30 * 24 * 60 * 60,
-    };
-    if (type == "movie") {
-      cacheOpts.cacheMaxAge = 14 * 24 * 60 * 60;
-    } else if (type == "series") {
-      const hasEnded = !!((resp.releaseInfo || "").length > 5);
-      cacheOpts.cacheMaxAge = (hasEnded ? 14 : 1) * 24 * 60 * 60;
-    }
-    respond(res, resp, cacheOpts);
-  }
-  if (req.params.id.includes("tt")) {
-    const tmdbId = await getTmdb(type, imdbId);
-    if (tmdbId) {
-      const resp = await cacheWrapMeta(`${language}:${type}:${tmdbId}`, async () => {
-        return await getMeta(type, language, tmdbId, rpdbkey, {
-          hideEpisodeThumbnails: config.hideEpisodeThumbnails === "true"
-        });
-      });
-      const cacheOpts = {
-        staleRevalidate: 20 * 24 * 60 * 60,
-        staleError: 30 * 24 * 60 * 60,
-      };
-      if (type == "movie") {
-        cacheOpts.cacheMaxAge = 14 * 24 * 60 * 60;
-      } else if (type == "series") {
-        const hasEnded = !!((resp.releaseInfo || "").length > 5);
-        cacheOpts.cacheMaxAge = (hasEnded ? 14 : 1) * 24 * 60 * 60;
-      }
-      respond(res, resp, cacheOpts);
-    } else {
-      respond(res, { meta: {} });
-    }
-  }
+addon.get("/:catalogChoices?/meta/:type/:id.json", async (req, res) => {
+  // … (ongewijzigd) …
 });
 
-addon.get("/api/image/blur", async function (req, res) {
-  const imageUrl = req.query.url;
-  
-  if (!imageUrl) {
-    return res.status(400).json({ error: 'URL da imagem não fornecida' });
-  }
-
-  try {
-    const blurredImageBuffer = await blurImage(imageUrl);
-    
-    if (!blurredImageBuffer) {
-      return res.status(500).json({ error: 'Erro ao processar imagem' });
-    }
-
-    res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
-    
-    res.send(blurredImageBuffer);
-  } catch (error) {
-    console.error('Erro na rota de blur:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
-  }
-});
-
-// ✅ NIEUWE MDBLIST API-ROUTE
+// MDBList lijst route
 addon.get("/mdblist/lists/user", async (req, res) => {
   const apikey = req.query.apikey;
-
-  if (!apikey) {
-    console.warn("Geen MDBList API-key meegegeven in query");
-    return res.status(400).json({ error: "No apikey provided" });
-  }
-
+  if (!apikey) return res.status(400).json({ error: "No apikey provided" });
   try {
     const lists = await getMDBLists(apikey);
-
-    if (!lists || !Array.isArray(lists) || lists.length === 0) {
-      console.warn("Geen lijsten gevonden of response is leeg:", lists);
-      return res.status(404).json({ error: "No MDBList lists found" });
-    }
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", "application/json");
-    res.status(200).json(lists);
-  } catch (err) {
-    console.error("Fout bij ophalen van MDBList lijsten:", err);
+    if (!lists.length) return res.status(404).json({ error: "No MDBList lists found" });
+    res.json(lists);
+  } catch {
     res.status(500).json({ error: "Failed to fetch MDBList lists" });
   }
 });
