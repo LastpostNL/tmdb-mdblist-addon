@@ -40,7 +40,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
         if (option.includes('.')) {
           const [field, order] = option.split('.');
           if (translatedCatalogs[field] && translatedCatalogs[order]) {
-            return ${translatedCatalogs[field]} (${translatedCatalogs[order]});
+return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
           }
           return option;
         }
