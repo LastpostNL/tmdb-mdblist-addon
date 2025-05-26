@@ -164,4 +164,8 @@ addon.get("/mdblist/lists/user", async (req, res) => {
   }
 });
 
+addon.get('/node-version', (req, res) => {
+  res.json({ nodeVersion: process.version });
+});
+
 module.exports = addon;
