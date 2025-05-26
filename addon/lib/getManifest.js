@@ -112,6 +112,8 @@ async function getManifest(config) {
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
   const userCatalogs = config.catalogs || getDefaultCatalogs();
+console.log("userCatalogs:", JSON.stringify(userCatalogs, null, 2));
+
   const translatedCatalogs = loadTranslations(language);
 
   console.log("User catalogs (config.catalogs):", JSON.stringify(userCatalogs, null, 2));
@@ -149,6 +151,8 @@ async function getManifest(config) {
   // Log MDBList config data
   console.log("MDBList config:", JSON.stringify(config.mdblist, null, 2));
 
+console.log("userCatalogs BEFORE filtering:", userCatalogs.map(c => c.id));
+
   const filteredUserCatalogs = userCatalogs.filter(cat => {
     if (cat.id.startsWith("mdblist_")) {
       const listId = cat.id.replace("mdblist_", "");
@@ -161,6 +165,7 @@ async function getManifest(config) {
     }
     return true;
   });
+console.log("filteredUserCatalogs AFTER filtering:", filteredUserCatalogs.map(c => c.id));
 
   console.log("Filtered user catalogs:", JSON.stringify(filteredUserCatalogs, null, 2));
 
