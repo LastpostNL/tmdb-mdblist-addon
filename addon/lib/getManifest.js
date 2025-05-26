@@ -184,7 +184,6 @@ async function getManifest(config) {
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
-    stremioAddonsConfig,
     behaviorHints: {
       configurable: true,
       configurationRequired: false,
