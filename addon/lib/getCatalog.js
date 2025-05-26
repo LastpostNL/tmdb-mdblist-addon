@@ -6,7 +6,15 @@ const { getLanguages } = require("./getLanguages");
 const { parseMedia } = require("../utils/parseProps");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 
+// ✅ Importeer de MDBList-handler
+const { getMDBList } = require("./getMDBList");
+
 async function getCatalog(type, language, page, id, genre, config) {
+  // ✅ Afhandeling voor MDBList
+  if (id.startsWith("mdblist.")) {
+    return await getMDBList(type, language, page, id, config);
+  }
+
   const genreList = await getGenreList(language, type);
   const parameters = await buildParameters(type, language, page, id, genre, genreList, config);
 
@@ -21,7 +29,7 @@ async function getCatalog(type, language, page, id, genre, config) {
 
 async function buildParameters(type, language, page, id, genre, genreList, config) {
   const languages = await getLanguages();
-  const parameters = { language, page, 'vote_count.gte': 10 };;
+  const parameters = { language, page, 'vote_count.gte': 10 };
 
   if (config.ageRating) {
     switch (config.ageRating) {
@@ -50,7 +58,7 @@ async function buildParameters(type, language, page, id, genre, genreList, confi
     const provider = findProvider(id.split(".")[1]);
 
     parameters.with_genres = genre ? findGenreId(genre, genreList) : undefined;
-    parameters.with_watch_providers = provider.watchProviderId
+    parameters.with_watch_providers = provider.watchProviderId;
     parameters.watch_region = provider.country;
     parameters.with_watch_monetization_types = "flatrate|free|ads";
   } else {
