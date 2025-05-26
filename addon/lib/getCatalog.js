@@ -8,11 +8,15 @@ const { getMDBList } = require("./getMDBList");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 
 async function getCatalog(type, language, page, id, genre, config) {
-config = config || {};
-  // MDBList ondersteuning
+  config = config || {};
+
   if (id.startsWith("mdblist_")) {
-return await getMDBList(type, id, page, language, config);
+    console.log(`[MDBList] getCatalog called with id=${id}, type=${type}`);
+    const result = await getMDBList(type, id, page, language, config);
+    console.log(`[MDBList] getCatalog result: metas count=${result.metas.length}`);
+    return result;
   }
+
   const genreList = await getGenreList(language, type);
   const parameters = await buildParameters(type, language, page, id, genre, genreList, config);
 
