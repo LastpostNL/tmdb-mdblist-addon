@@ -1,10 +1,7 @@
-// index.js
-require('dotenv').config();
 const express = require("express");
 const favicon = require('serve-favicon');
-const path = require("path");
+const path = require("path")
 const addon = express();
-const getMDBListItems = require("./lib/getMDBListItems");
 const analytics = require('./utils/analytics');
 const { getCatalog } = require("./lib/getCatalog");
 const { getSearch } = require("./lib/getSearch");
@@ -13,189 +10,213 @@ const { getMeta } = require("./lib/getMeta");
 const { getTmdb } = require("./lib/getTmdb");
 const { cacheWrapMeta } = require("./lib/getCache");
 const { getTrending } = require("./lib/getTrending");
-const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
-const { getMDBLists, getMDBList } = require("./lib/getMDBList"); // toegevoegd
 const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProps");
 const { getRequestToken, getSessionId } = require("./lib/getSession");
+const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
 const { blurImage } = require('./utils/imageProcessor');
 
-// ─── MIDDLEWARES ───────────────────────────────────────────────────────────────
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
 addon.use(express.static(path.join(__dirname, '../public')));
 addon.use(express.static(path.join(__dirname, '../dist')));
 
-const getCacheHeaders = (opts = {}) => {
-  const map = {
+const getCacheHeaders = function (opts) {
+  opts = opts || {};
+
+  if (!Object.keys(opts).length) return false;
+
+  let cacheHeaders = {
     cacheMaxAge: "max-age",
     staleRevalidate: "stale-while-revalidate",
     staleError: "stale-if-error",
   };
-  return Object.entries(map)
-    .map(([opt, header]) => opts[opt] ? `${header}=${opts[opt]}` : false)
-    .filter(Boolean)
+
+  return Object.keys(cacheHeaders)
+    .map((prop) => {
+      const value = opts[prop];
+      if (!value) return false;
+      return cacheHeaders[prop] + "=" + value;
+    })
+    .filter((val) => !!val)
     .join(", ");
 };
 
-const respond = (res, data, opts) => {
-  const cc = getCacheHeaders(opts);
-  if (cc) res.setHeader("Cache-Control", `${cc}, public`);
+const respond = function (res, data, opts) {
+  const cacheControl = getCacheHeaders(opts);
+  if (cacheControl) res.setHeader("Cache-Control", `${cacheControl}, public`);
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
   res.setHeader("Content-Type", "application/json");
   res.send(data);
 };
 
-// ─── ROUTES ────────────────────────────────────────────────────────────────────
-addon.get("/", (_, res) => res.redirect("/configure"));
-
-addon.get("/request_token", async (req, res) => {
-  const token = await getRequestToken();
-  respond(res, token);
+addon.get("/", function (_, res) {
+  res.redirect("/configure");
 });
 
-addon.get("/session_id", async (req, res) => {
-  const sid = await getSessionId(req.query.request_token);
-  respond(res, sid);
+addon.get("/request_token", async function (req, res) {
+  const requestToken = await getRequestToken()
+  respond(res, requestToken);
 });
 
-// Serve configure-UI
+addon.get("/session_id", async function (req, res) {
+  const requestToken = req.query.request_token
+  const sessionId = await getSessionId(requestToken)
+  respond(res, sessionId);
+});
+
 addon.use('/configure', express.static(path.join(__dirname, '../dist')));
-addon.get('/:catalogChoices?/configure', (req, res) => {
+
+addon.use('/configure', (req, res, next) => {
+  const config = parseConfig(req.params.catalogChoices);
+  next();
+});
+
+addon.get('/:catalogChoices?/configure', function (req, res) {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-// ─── MDBList-lijsten voor de configuratie ─────────────────────────────────────
-addon.get("/mdblist/lists/user", async (req, res) => {
-  const apikey = req.query.apikey;
-  if (!apikey) return res.status(400).json({ error: "No apikey provided" });
-  try {
-    const lists = await getMDBLists(apikey);
-    if (!lists.length) return res.status(404).json({ error: "No MDBList lists found" });
-    res.json(lists);
-  } catch (err) {
-    console.error("MDBList fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch MDBList lists" });
-  }
+addon.get("/:catalogChoices?/manifest.json", async function (req, res) {
+    const { catalogChoices } = req.params;
+    const config = parseConfig(catalogChoices);
+    const manifest = await getManifest(config);
+    
+    const cacheOpts = {
+        cacheMaxAge: 12 * 60 * 60,
+        staleRevalidate: 14 * 24 * 60 * 60, 
+        staleError: 30 * 24 * 60 * 60, 
+    };
+    respond(res, manifest, cacheOpts);
 });
 
-// ─── MDBList-lijst items endpoint ─────────────────────────────────────────────
-addon.get("/mdblist/list/:listid/items", async (req, res) => {
-  try {
-    const { listid } = req.params;
-    const { limit, offset, apikey, filter_genre, sort, order, unified } = req.query;
-
-    if (!apikey) {
-      return res.status(400).json({ error: "apikey query parameter is required" });
-    }
-
-    const items = await getMDBListItems({
-      listid,
-      limit: limit ? Number(limit) : undefined,
-      offset: offset ? Number(offset) : undefined,
-      apikey,
-      filter_genre,
-      sort,
-      order,
-      unified: unified === "true" || unified === true,
-    });
-
-    res.json({ items });
-  } catch (err) {
-    console.error("MDBList items fetch error:", err);
-    res.status(500).json({ error: "Failed to fetch MDBList list items" });
-  }
-});
-
-// ─── Manifest ─────────────────────────────────────────────────────────────────
-addon.get("/:catalogChoices?/manifest.json", async (req, res) => {
-  const config = parseConfig(req.params.catalogChoices);
-  const manifest = await getManifest(config);
-  respond(res, manifest, {
-    cacheMaxAge: 12 * 3600,
-    staleRevalidate: 14 * 24 * 3600,
-    staleError: 30 * 24 * 3600,
-  });
-});
-
-// ─── Catalogus (TMDB én MDBList) ──────────────────────────────────────────────
-addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async (req, res) => {
+addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (req, res) {
   const { catalogChoices, type, id, extra } = req.params;
-  const config = parseConfig(catalogChoices);
+  const config = parseConfig(catalogChoices)
   const language = config.language || DEFAULT_LANGUAGE;
-  const sessionId = config.sessionId;
-  const rpdbkey = config.rpdbkey;
-
-  // parse extra query params
-  const params = extra
-    ? Object.fromEntries(new URLSearchParams(extra.slice(0, -5)).entries())
+  const rpdbkey = config.rpdbkey
+  const sessionId = config.sessionId
+  const { genre, skip, search } = extra
+    ? Object.fromEntries(
+      new URLSearchParams(req.url.split("/").pop().split("?")[0].slice(0, -5)).entries()
+    )
     : {};
-  const page = Math.max(1, Math.ceil((params.skip||0)/20) + 1);
-  const genre = params.genre;
-  const search = params.search;
-
+  const page = Math.ceil(skip ? skip / 20 + 1 : undefined) || 1;
+  let metas = [];
   try {
-    // ── MDBList-catalogus?
-    if (id.startsWith("mdblist.")) {
-      const { metas, cacheMaxAge } = await getMDBList(type, language, page, id, config);
-      return respond(res, { metas }, { cacheMaxAge });
-    }
+    const args = [type, language, page];
 
-    // ── TMDB-catalogi
-    let result;
     if (search) {
-      result = await getSearch(type, language, search, config);
+      metas = await getSearch(type, language, search, config);
     } else {
       switch (id) {
         case "tmdb.trending":
-          result = await getTrending(type, language, page, genre); break;
+          metas = await getTrending(...args, genre);
+          break;
         case "tmdb.favorites":
-          result = await getFavorites(type, language, page, genre, sessionId); break;
+          metas = await getFavorites(...args, genre, sessionId);
+          break;
         case "tmdb.watchlist":
-          result = await getWatchList(type, language, page, genre, sessionId); break;
+          metas = await getWatchList(...args, genre, sessionId);
+          break;
         default:
-          result = await getCatalog(type, language, page, id, genre, config); break;
+          metas = await getCatalog(...args, id, genre, config);
+          break;
       }
     }
-
-    // RPDB overlay
-    if (rpdbkey && result.metas) {
-      result.metas = await Promise.all(result.metas.map(async el => {
-        const rpdbImg = getRpdbPoster(type, el.id.replace("tmdb:", ""), language, rpdbkey);
-        el.poster = (await checkIfExists(rpdbImg)) ? rpdbImg : el.poster;
+  } catch (e) {
+    res.status(404).send((e || {}).message || "Not found");
+    return;
+  }
+  const cacheOpts = {
+    cacheMaxAge: 1 * 24 * 60 * 60, 
+    staleRevalidate: 7 * 24 * 60 * 60,
+    staleError: 14 * 24 * 60 * 60,
+  };
+  if (rpdbkey) {
+    try {
+      metas = JSON.parse(JSON.stringify(metas));
+      metas.metas = await Promise.all(metas.metas.map(async (el) => {
+        const rpdbImage = getRpdbPoster(type, el.id.replace('tmdb:', ''), language, rpdbkey) 
+        el.poster = await checkIfExists(rpdbImage) ? rpdbImage : el.poster;
         return el;
-      }));
-    }
+      }))
+    } catch (e) { }
+  }
+  respond(res, metas, cacheOpts);
+});
 
-    respond(res, result, {
-      cacheMaxAge: 24 * 3600,
-      staleRevalidate: 7 * 24 * 3600,
-      staleError: 14 * 24 * 3600,
+addon.get("/:catalogChoices?/meta/:type/:id.json", async function (req, res) {
+  const { catalogChoices, type, id } = req.params;
+  const config = parseConfig(catalogChoices);
+  const tmdbId = id.split(":")[1];
+  const language = config.language || DEFAULT_LANGUAGE;
+  const rpdbkey = config.rpdbkey;
+  const imdbId = req.params.id.split(":")[0];
+
+  if (req.params.id.includes("tmdb:")) {
+    const resp = await cacheWrapMeta(`${language}:${type}:${tmdbId}`, async () => {
+      return await getMeta(type, language, tmdbId, rpdbkey, {
+        hideEpisodeThumbnails: config.hideEpisodeThumbnails === "true"
+      });
     });
-  } catch (err) {
-    console.error("Catalog error:", err);
-    res.status(404).send(err.message || "Not found");
+    const cacheOpts = {
+      staleRevalidate: 20 * 24 * 60 * 60,
+      staleError: 30 * 24 * 60 * 60,
+    };
+    if (type == "movie") {
+      cacheOpts.cacheMaxAge = 14 * 24 * 60 * 60;
+    } else if (type == "series") {
+      const hasEnded = !!((resp.releaseInfo || "").length > 5);
+      cacheOpts.cacheMaxAge = (hasEnded ? 14 : 1) * 24 * 60 * 60;
+    }
+    respond(res, resp, cacheOpts);
+  }
+  if (req.params.id.includes("tt")) {
+    const tmdbId = await getTmdb(type, imdbId);
+    if (tmdbId) {
+      const resp = await cacheWrapMeta(`${language}:${type}:${tmdbId}`, async () => {
+        return await getMeta(type, language, tmdbId, rpdbkey, {
+          hideEpisodeThumbnails: config.hideEpisodeThumbnails === "true"
+        });
+      });
+      const cacheOpts = {
+        staleRevalidate: 20 * 24 * 60 * 60,
+        staleError: 30 * 24 * 60 * 60,
+      };
+      if (type == "movie") {
+        cacheOpts.cacheMaxAge = 14 * 24 * 60 * 60;
+      } else if (type == "series") {
+        const hasEnded = !!((resp.releaseInfo || "").length > 5);
+        cacheOpts.cacheMaxAge = (hasEnded ? 14 : 1) * 24 * 60 * 60;
+      }
+      respond(res, resp, cacheOpts);
+    } else {
+      respond(res, { meta: {} });
+    }
   }
 });
 
-// ─── Meta-data per item ───────────────────────────────────────────────────────
-addon.get("/:catalogChoices?/meta/:type/:id.json", async (req, res) => {
-  // **kopieer hier ongewijzigd je bestaande meta-route uit de originele addon**
-});
-
-// ─── Beeld-blur endpoint ──────────────────────────────────────────────────────
-addon.get("/api/image/blur", async (req, res) => {
+addon.get("/api/image/blur", async function (req, res) {
   const imageUrl = req.query.url;
-  if (!imageUrl) return res.status(400).json({ error: 'No URL provided' });
+  
+  if (!imageUrl) {
+    return res.status(400).json({ error: 'URL da imagem não fornecida' });
+  }
 
   try {
-    const buf = await blurImage(imageUrl);
+    const blurredImageBuffer = await blurImage(imageUrl);
+    
+    if (!blurredImageBuffer) {
+      return res.status(500).json({ error: 'Erro ao processar imagem' });
+    }
+
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
-    res.send(buf);
-  } catch (err) {
-    console.error('Blur error:', err);
-    res.status(500).json({ error: 'Failed to blur image' });
+    
+    res.send(blurredImageBuffer);
+  } catch (error) {
+    console.error('Erro na rota de blur:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
