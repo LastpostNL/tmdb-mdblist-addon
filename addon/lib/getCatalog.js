@@ -1,105 +1,165 @@
 require("dotenv").config();
+const { MovieDb } = require("moviedb-promise");
+const moviedb = new MovieDb(process.env.TMDB_API_KEY);
 
-const API_KEY = process.env.TMDB_API_KEY;
-const MDBLIST_BASE_URL = process.env.MDBLIST_BASE_URL || "https://api.mdblist.com";
+const { getGenreList } = require("./getGenreList");
+const { getLanguages } = require("./getLanguages");
+const { parseMedia } = require("../utils/parseProps");
+const CATALOG_TYPES = require("../static/catalog-types.json");
 
+// Hoofd export
 async function getCatalog(args) {
-  const { id, extra, extraInputs, config } = args;
+  const { id, extra, extraInputs, config, language = "en-US" } = args;
 
-  const isMDBList = id.startsWith("mdblist_");
-  if (isMDBList) {
-    // Handle MDBList catalog fetch
+  // MDBList catalogus afhandeling
+  if (id.startsWith("mdblist_")) {
     return getMDBListCatalog(id, extraInputs, config);
   }
 
-  if (!API_KEY) {
-    throw new Error("TMDB_API_KEY missing in environment variables");
-  }
+  // TMDB afhandeling
+  const typeRaw = id.split(".").pop(); // movie, series, etc.
+  const type = typeRaw === "series" ? "tv" : typeRaw;
 
-  const type = id.split(".").pop(); // movie or series or other
   let page = 1;
   if (extra && extra.length > 0) {
-    const pageExtra = extra.find(e => e.name === "skip");
-    if (pageExtra) {
-      page = pageExtra.value + 1;
-    }
+    const skipExtra = extra.find(e => e.name === "skip");
+    if (skipExtra) page = skipExtra.value + 1;
   }
 
-  let url = "";
-  let searchQuery = null;
-  let genre = null;
+  const genre = extraInputs?.find(e => e.name === "genre")?.value;
+  const searchQuery = extraInputs?.find(e => e.name === "search")?.value;
 
-  if (extraInputs && extraInputs.length > 0) {
-    for (const input of extraInputs) {
-      if (input.name === "search" && input.value) {
-        searchQuery = input.value;
-      }
-      if (input.name === "genre" && input.value) {
-        genre = input.value;
-      }
-    }
-  }
+  const genreList = await getGenreList(language, typeRaw);
 
   if (id === "tmdb.search" && searchQuery) {
-    url = `https://api.themoviedb.org/3/search/${type}?api_key=${API_KEY}&language=en-US&query=${encodeURIComponent(searchQuery)}&page=${page}`;
-  } else {
-    // Handle popular, top_rated, upcoming etc.
-    const path = id.replace(/^tmdb\./, "").replace(`.${type}`, "");
-    url = `https://api.themoviedb.org/3/${type}/${path}?api_key=${API_KEY}&language=en-US&page=${page}`;
+    // Search via TMDB
+    try {
+      const res = await moviedb.search(type, {
+        query: searchQuery,
+        language,
+        page,
+      });
+      const metas = res.results.map(item => parseMedia(item, typeRaw, genreList));
+      return { metas, cacheMaxAge: 3600 };
+    } catch (err) {
+      console.error("TMDB search error:", err);
+      return { metas: [], cacheMaxAge: 300 };
+    }
   }
 
-  // Append genre filter if present
-  if (genre && genre !== "Top") {
-    url += `&with_genres=${genre}`;
-  }
+  // Build parameters voor discover calls
+  const parameters = await buildParameters(typeRaw, language, page, id, genre, genreList, config);
+
+  const fetchFunction = type === "movie" ? moviedb.discoverMovie.bind(moviedb) : moviedb.discoverTv.bind(moviedb);
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
-    }
-    const data = await response.json();
-
-    // Map TMDB results to Stremio format
-    const metas = data.results.map(item => ({
-      id: `tmdb:${item.id}`,
-      type,
-      name: item.title || item.name,
-      poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-      backdrop: item.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : null,
-      releaseInfo: item.release_date || item.first_air_date || null,
-      overview: item.overview || "",
-      imdb_id: item.imdb_id || null,
-      genres: item.genre_ids || [],
-      runtime: item.runtime || null,
-    }));
-
+    const res = await fetchFunction(parameters);
+    const metas = res.results.map(el => parseMedia(el, typeRaw, genreList));
     return { metas, cacheMaxAge: 3600 };
-  } catch (error) {
-    console.error("Error fetching TMDB catalog:", error);
+  } catch (err) {
+    console.error("TMDB discover error:", err);
     return { metas: [], cacheMaxAge: 300 };
   }
 }
 
+// Hulpfuncties zoals in origineel
+
+async function buildParameters(type, language, page, id, genre, genreList, config) {
+  const languages = await getLanguages();
+  const parameters = { language, page, 'vote_count.gte': 10 };
+
+  if (config.ageRating) {
+    switch (config.ageRating) {
+      case "G":
+        parameters.certification_country = "US";
+        parameters.certification = type === "movie" ? "G" : "TV-G";
+        break;
+      case "PG":
+        parameters.certification_country = "US";
+        parameters.certification = type === "movie" ? ["G", "PG"].join("|") : ["TV-G", "TV-PG"].join("|");
+        break;
+      case "PG-13":
+        parameters.certification_country = "US";
+        parameters.certification = type === "movie" ? ["G", "PG", "PG-13"].join("|") : ["TV-G", "TV-PG", "TV-14"].join("|");
+        break;
+      case "R":
+        parameters.certification_country = "US";
+        parameters.certification = type === "movie" ? ["G", "PG", "PG-13", "R"].join("|") : ["TV-G", "TV-PG", "TV-14", "TV-MA"].join("|");
+        break;
+      case "NC-17":
+        // geen parameters meegegeven
+        break;
+    }
+  }
+
+  if (id.includes("streaming")) {
+    const provider = findProvider(id.split(".")[1]);
+    if (genre) parameters.with_genres = findGenreId(genre, genreList);
+    parameters.with_watch_providers = provider.watchProviderId;
+    parameters.watch_region = provider.country;
+    parameters.with_watch_monetization_types = "flatrate|free|ads";
+  } else {
+    switch (id) {
+      case "tmdb.top":
+        if (genre) parameters.with_genres = findGenreId(genre, genreList);
+        if (type === "series") {
+          parameters.watch_region = language.split("-")[1];
+          parameters.with_watch_monetization_types = "flatrate|free|ads|rent|buy";
+        }
+        break;
+      case "tmdb.year":
+        const year = genre || new Date().getFullYear();
+        if (type === "movie") {
+          parameters.primary_release_year = year;
+        } else {
+          parameters.first_air_date_year = year;
+        }
+        break;
+      case "tmdb.language":
+        const langCode = genre ? findLanguageCode(genre, languages) : language.split("-")[0];
+        parameters.with_original_language = langCode;
+        break;
+      default:
+        break;
+    }
+  }
+  return parameters;
+}
+
+function findGenreId(genreName, genreList) {
+  const genreData = genreList.find(genre => genre.name === genreName);
+  return genreData ? genreData.id : undefined;
+}
+
+function findLanguageCode(genre, languages) {
+  const language = languages.find(lang => lang.name === genre);
+  return language ? language.iso_639_1.split("-")[0] : "";
+}
+
+function findProvider(providerId) {
+  const provider = CATALOG_TYPES.streaming[providerId];
+  if (!provider) throw new Error(`Could not find provider: ${providerId}`);
+  return provider;
+}
+
+// MDBList catalogus ophalen (zoals jij al had)
+
 async function getMDBListCatalog(id, extraInputs, config) {
-  // id format: mdblist_123456
+  const MDBLIST_BASE_URL = process.env.MDBLIST_BASE_URL || "https://api.mdblist.com";
   const listId = id.replace("mdblist_", "");
   const url = `${MDBLIST_BASE_URL}/lists/${listId}/items`;
 
-  // If pagination supported, parse page from extraInputs
   let page = 1;
   if (extraInputs && extraInputs.length > 0) {
     const skipExtra = extraInputs.find(e => e.name === "skip");
-    if (skipExtra) {
-      page = skipExtra.value + 1;
-    }
+    if (skipExtra) page = skipExtra.value + 1;
   }
 
   try {
     const res = await fetch(`${url}?page=${page}`, {
       headers: {
-        Authorization: `Bearer ${config.mdblistkey || ""}`
-      }
+        Authorization: `Bearer ${config.mdblistkey || ""}`,
+      },
     });
 
     if (!res.ok) {
@@ -112,7 +172,6 @@ async function getMDBListCatalog(id, extraInputs, config) {
       return { metas: [], cacheMaxAge: 300 };
     }
 
-    // Map MDBList items to Stremio metas
     const metas = json.items.map(item => ({
       id: item.tmdbId ? `tmdb:${item.tmdbId}` : `mdblist:${item.id}`,
       type: item.mediaType === "show" ? "series" : "movie",
