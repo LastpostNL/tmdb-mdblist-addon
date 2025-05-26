@@ -1,10 +1,10 @@
 const express = require('express');
-const app = express();
 const cors = require('cors');
-app.use(cors());
 const favicon = require('serve-favicon');
 const path = require("path");
 const addon = express();
+// ✅ CORS hier activeren, vóór routes
+addon.use(cors());
 const analytics = require('./utils/analytics');
 const { getCatalog } = require("./lib/getCatalog");
 const { getSearch } = require("./lib/getSearch");
