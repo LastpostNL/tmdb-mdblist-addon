@@ -141,6 +141,7 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
+  // Filter userCatalogs op geselecteerde MDBList lijsten
   const filteredUserCatalogs = userCatalogs.filter(cat => {
     if (cat.id.startsWith("mdblist_")) {
       const listId = cat.id.replace("mdblist_", "");
@@ -173,24 +174,25 @@ async function getManifest(config) {
       );
     });
 
- // Voeg geselecteerde MDBList-lijsten toe die nog niet in userCatalogs staan
-if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
-  const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
-  const existingCatalogIds = new Set(userCatalogs.map(c => c.id));
+  // Voeg geselecteerde MDBList-lijsten toe die nog niet in userCatalogs staan
+  if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(config.mdblist.selectedLists)) {
+    const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
+    const existingCatalogIds = new Set(userCatalogs.map(c => c.id));
 
-  selectedLists.forEach(list => {
-    const type = list.mediatype === "show" ? "series" : list.mediatype || "movie";
-    const catalogId = `mdblist_${list.id}`;
-    if (!existingCatalogIds.has(catalogId)) {
-      catalogs.push({
-        id: catalogId,
-        type,
-        name: `[MDBList] ${list.name}`,
-        extra: [{ name: "search", isRequired: false }]
-      });
-    }
-  });
-}
+    selectedLists.forEach(list => {
+      // Mediatype omzetten naar Stremio-compatibele type (movie of series)
+      const type = list.mediatype === "show" ? "series" : (list.mediatype || "movie");
+      const catalogId = `mdblist_${list.id.toString()}`;
+      if (!existingCatalogIds.has(catalogId)) {
+        catalogs.push({
+          id: catalogId,
+          type,
+          name: `[MDBList] ${list.name}`,
+          extra: [{ name: "search", isRequired: false }]
+        });
+      }
+    });
+  }
 
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
@@ -241,17 +243,20 @@ if (config.mdblist && Array.isArray(config.mdblist.lists) && Array.isArray(confi
 }
 
 function getDefaultCatalogs() {
-  const defaultTypes = ['movie', 'series'];
-  const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
+  const defaultTypes = ["movie", "series"];
+  const defaultCatalogIds = [
+    "tmdb.popular.movie",
+    "tmdb.top_rated.movie",
+    "tmdb.upcoming.movie",
+    "tmdb.popular.series",
+    "tmdb.top_rated.series",
+    "tmdb.on_the_air.series",
+  ];
 
-  return defaultCatalogs.flatMap(id =>
-    defaultTypes.map(type => ({
-      id: `tmdb.${id}`,
-      type,
-      showInHome: true,
-      enabled: true
-    }))
-  );
+  return defaultCatalogIds.map(id => {
+    const type = id.split(".").pop();
+    return { id, type, showInHome: false };
+  });
 }
 
-module.exports = { getManifest, DEFAULT_LANGUAGE };
+module.exports = { getManifest };
