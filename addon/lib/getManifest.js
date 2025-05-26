@@ -4,7 +4,7 @@ const { getLanguages } = require("./getLanguages");
 const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
-const DEFAULT_LANGUAGE = "en-US";
+const DEFAULT_LANGUAGE = "nl-NL";
 
 function generateArrayOfYears(maxYears) {
   const max = new Date().getFullYear();
@@ -40,7 +40,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
         if (option.includes('.')) {
           const [field, order] = option.split('.');
           if (translatedCatalogs[field] && translatedCatalogs[order]) {
-return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
+            return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
           }
           return option;
         }
@@ -61,7 +61,7 @@ return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
   return {
     id,
     type,
-    name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]},
+    name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]}`,
     pageSize: 20,
     extra
   };
@@ -140,7 +140,7 @@ async function getManifest(config) {
       catalogs.push({
         id: userCatalog.id,
         type: userCatalog.type,
-        name: MDBList - ${userCatalog.name},
+        name: `MDBList - ${userCatalog.name}`,
         pageSize: 20,
         extra: [{ name: "skip" }]
       });
@@ -152,33 +152,33 @@ async function getManifest(config) {
     const searchCatalogMovie = {
       id: "tmdb.search",
       type: "movie",
-      name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search},
+      name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
       extra: [{ name: "search", isRequired: true }]
     };
     const searchCatalogSeries = {
       id: "tmdb.search",
       type: "series",
-      name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search},
+      name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
       extra: [{ name: "search", isRequired: true }]
     };
     catalogs.push(searchCatalogMovie, searchCatalogSeries);
   }
 
   const activeConfigs = [
-    Language: ${language},
-    TMDB Account: ${sessionId ? 'Connected' : 'Not Connected'},
-    IMDb Integration: ${provideImdbId ? 'Enabled' : 'Disabled'},
-    RPDB Integration: ${config.rpdbkey ? 'Enabled' : 'Disabled'},
-    Search: ${config.searchEnabled !== "false" ? 'Enabled' : 'Disabled'},
-    Active Catalogs: ${catalogs.length}
+    `Language: ${language}`,
+    `TMDB Account: ${sessionId ? 'Connected' : 'Not Connected'}`,
+    `IMDb Integration: ${provideImdbId ? 'Enabled' : 'Disabled'}`,
+    `RPDB Integration: ${config.rpdbkey ? 'Enabled' : 'Disabled'}`,
+    `Search: ${config.searchEnabled !== "false" ? 'Enabled' : 'Disabled'}`,
+    `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
 
   return {
     id: packageJson.name,
     version: packageJson.version,
-    favicon: ${process.env.HOST_NAME}/favicon.png,
-    logo: ${process.env.HOST_NAME}/logo.png,
-    background: ${process.env.HOST_NAME}/background.png,
+    favicon: `${process.env.HOST_NAME}/favicon.png`,
+    logo: `${process.env.HOST_NAME}/logo.png`,
+    background: `${process.env.HOST_NAME}/background.png`,
     name: "The Movie Database",
     description: "Stremio addon that provides rich metadata for movies and TV shows from TMDB, featuring customizable catalogs, multi-language support, favorites lists, watchlist, ratings, and IMDb integration. Current settings: " + activeConfigs,
     resources: ["catalog", "meta"],
@@ -199,7 +199,7 @@ function getDefaultCatalogs() {
 
   return defaultCatalogs.flatMap(id =>
     defaultTypes.map(type => ({
-      id: tmdb.${id},
+      id: `tmdb.${id}`,
       type,
       showInHome: true
     }))
