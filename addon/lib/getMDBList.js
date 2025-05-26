@@ -26,34 +26,29 @@ async function getMDBLists(userToken) {
 
 // Haalt één specifieke lijst op en retourneert object { metas: [] }
 async function getMDBList(type, id, page, language, config) {
-const listId = id;
-const safeConfig = config || {};
-const userToken = safeConfig.mdblistUserToken;
+  const listId = id;
+  const safeConfig = config || {};
+  const userToken = safeConfig.mdblistUserToken;
 
-if (!userToken) {
-  console.error("MDBList user token ontbreekt of config is niet meegegeven:", config);
-  return { metas: [] };
-}
+  if (!userToken) {
+    console.error("MDBList user token ontbreekt of config is niet meegegeven:", config);
+    return { metas: [] };
+  }
 
-  const url = `https://api.mdblist.com/lists/user/${listId}?apikey=${userToken}`;
-  console.log(`Fetching MDBList single list from: ${url}`);
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}`;
+  console.log(`Fetching MDBList items from: ${url}`);
 
   try {
     const response = await fetch(url);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Error fetching MDBList list:", errorText);
+      console.error("Error fetching MDBList list items:", errorText);
       return { metas: [] };
     }
 
     const data = await response.json();
-
-    // Filter items op type (movie/show)
-    const filteredItems = (Array.isArray(data.items) ? data.items : []).filter(item => {
-      return type === "movie" ? item.type === "movie" : item.type === "show";
-    });
-
-    const metas = filteredItems.map(item => parseMedia(item, type));
+    const itemsArray = type === "movie" ? data.movies : data.shows;
+    const metas = (itemsArray || []).map(item => parseMedia(item, type));
 
     return { metas };
   } catch (err) {
@@ -61,6 +56,7 @@ if (!userToken) {
     return { metas: [] };
   }
 }
+
 
 module.exports = {
   getMDBLists,
