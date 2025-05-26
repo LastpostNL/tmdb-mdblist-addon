@@ -164,15 +164,14 @@ if (config.mdblistUserToken) {
 }
 // ──────────────────────────────────────────────────────────────────────────────
 
-// Hardcoded testlijst toevoegen
 catalogs.push({
-  id: "mdblist_komt-uit-nederland",
-  type: "movie", // of "series" als het een serie-lijst is
-  name: "MDBList Test NL",
+  id: "mdblist_88078", // dit is de lijst-ID met prefix
+  type: "movie", // uit de API: "mediatype": "movie"
+  name: "Populair en Nederlands", // uit de API: "name"
   pageSize: 20,
   extra: [{ name: "skip" }],
-  poster: "https://mdblist.com/images/lists/komt-uit-nederland.jpg",
-  background: "https://mdblist.com/images/lists/komt-uit-nederland-bg.jpg",
+  poster: "https://mdblist.com/images/lists/komt-uit-nederland.jpg", // gebaseerd op de slug
+  background: "https://mdblist.com/images/lists/komt-uit-nederland-bg.jpg", // idem
   showInHome: true
 });
 
