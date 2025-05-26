@@ -141,6 +141,9 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
+  // Debug: log mdblist config
+  console.log("config.mdblist:", config.mdblist);
+
   // Filter userCatalogs op geselecteerde MDBList lijsten
   const filteredUserCatalogs = userCatalogs.filter(cat => {
     if (cat.id.startsWith("mdblist_")) {
@@ -152,6 +155,8 @@ async function getManifest(config) {
     }
     return true;
   });
+
+  console.log("filteredUserCatalogs (na filter mdblist):", filteredUserCatalogs.map(c => c.id));
 
   let catalogs = filteredUserCatalogs
     .filter(userCatalog => {
@@ -179,19 +184,27 @@ async function getManifest(config) {
     const selectedLists = config.mdblist.lists.filter(list => config.mdblist.selectedLists.includes(list.id));
     const existingCatalogIds = new Set(userCatalogs.map(c => c.id));
 
+    console.log("Selected MDBList lists:", selectedLists.map(l => l.id));
+    console.log("Existing catalog IDs:", Array.from(existingCatalogIds));
+
     selectedLists.forEach(list => {
       // Mediatype omzetten naar Stremio-compatibele type (movie of series)
       const type = list.mediatype === "show" ? "series" : (list.mediatype || "movie");
       const catalogId = `mdblist_${list.id.toString()}`;
       if (!existingCatalogIds.has(catalogId)) {
+        console.log(`Adding MDBList catalog: ${catalogId} - ${list.name} (${type})`);
         catalogs.push({
           id: catalogId,
           type,
           name: `[MDBList] ${list.name}`,
           extra: [{ name: "search", isRequired: false }]
         });
+      } else {
+        console.log(`MDBList catalog already exists: ${catalogId}`);
       }
     });
+  } else {
+    console.log("Geen of incomplete mdblist configuratie aanwezig.");
   }
 
   if (config.searchEnabled !== "false") {
@@ -221,6 +234,7 @@ async function getManifest(config) {
     `Active Catalogs: ${catalogs.length}`
   ].join(' | ');
 
+  console.log("Final catalogs IDs:", catalogs.map(c => c.id));
   console.log("----- END getManifest -----");
 
   return {
