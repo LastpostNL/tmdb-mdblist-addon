@@ -107,26 +107,25 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async (req, res) =
     if (params.search) {
       metas = await getSearch(type, language, params.search, config);
     } else {
-      switch (id) {
-        case "tmdb.trending":
-          metas = await getTrending(type, language, +params.skip/20+1, params.genre);
-          break;
-        case "tmdb.favorites":
-          metas = await getFavorites(type, language, +params.skip/20+1, params.genre, sessionId);
-          break;
-        case "tmdb.watchlist":
-          metas = await getWatchList(type, language, +params.skip/20+1, params.genre, sessionId);
-          break;
-        default:
-metas = await getCatalog({
-  id,
-  extraInputs: [
-    { name: "skip", value: Number(params.skip || 0) },
-    ...(params.genre ? [{ name: "genre", value: params.genre }] : []),
-  ],
-  config,
-});
-      }
+      // Bovenin de handler
+const skip = Number(params.skip) || 0;
+const page = Math.floor(skip / 20) + 1;
+
+switch (id) {
+  case "tmdb.trending":
+    metas = await getTrending(type, language, page, params.genre);
+    break;
+  // …
+  default:
+    metas = await getCatalog({
+      id,
+      extraInputs: [
+        { name: "skip", value: skip },
+        ...(params.genre ? [{ name: "genre", value: params.genre }] : []),
+      ],
+      config,
+    });
+}
     }
   } catch {
     return res.status(404).send("Not found");
