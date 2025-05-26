@@ -1,3 +1,5 @@
+const cors = require('cors');
+app.use(cors()); // Of beperk tot localhost:3000
 const express = require("express");
 const favicon = require('serve-favicon');
 const path = require("path");
