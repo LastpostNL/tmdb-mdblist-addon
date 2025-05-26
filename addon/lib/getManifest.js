@@ -6,6 +6,11 @@ const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 const DEFAULT_LANGUAGE = "en-US";
 
+if (!process.env.TMDB_API_KEY) {
+  console.error("❌ Geen geldige TMDB_API_KEY in .env aanwezig.");
+  process.exit(1);
+}
+
 function generateArrayOfYears(maxYears) {
   const max = new Date().getFullYear();
   const min = max - maxYears;
@@ -28,6 +33,7 @@ function setOrderLanguage(language, languagesArray) {
 function loadTranslations(language) {
   const defaultTranslations = catalogsTranslations[DEFAULT_LANGUAGE] || {};
   const selectedTranslations = catalogsTranslations[language] || {};
+
   return { ...defaultTranslations, ...selectedTranslations };
 }
 
@@ -69,19 +75,22 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
 
 function getCatalogDefinition(catalogId) {
   const [provider, type] = catalogId.split('.');
+  
   for (const category of Object.keys(CATALOG_TYPES)) {
     if (CATALOG_TYPES[category][type]) {
       return CATALOG_TYPES[category][type];
     }
   }
+  
   return null;
 }
 
 function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
   if (catalogDef.defaultOptions) return catalogDef.defaultOptions;
+
   const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
   const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
-
+  
   switch (catalogDef.nameKey) {
     case 'year':
       return years;
@@ -103,26 +112,47 @@ async function getManifest(config) {
   const translatedCatalogs = loadTranslations(language);
 
   const years = generateArrayOfYears(20);
-  const genres_movie = await getGenreList(language, "movie").then(g => g.map(el => el.name).sort());
-  const genres_series = await getGenreList(language, "series").then(g => g.map(el => el.name).sort());
+
+  let genres_movie = [];
+  try {
+    const rawGenres = await getGenreList(language, "movie");
+    if (Array.isArray(rawGenres)) {
+      genres_movie = rawGenres.map(el => el.name).sort();
+    } else {
+      console.warn("⚠️ Geen geldige movie genres ontvangen van TMDB.");
+    }
+  } catch (err) {
+    console.warn("⚠️ Fout bij ophalen movie genres:", err.message);
+  }
+
+  let genres_series = [];
+  try {
+    const rawGenres = await getGenreList(language, "series");
+    if (Array.isArray(rawGenres)) {
+      genres_series = rawGenres.map(el => el.name).sort();
+    } else {
+      console.warn("⚠️ Geen geldige series genres ontvangen van TMDB.");
+    }
+  } catch (err) {
+    console.warn("⚠️ Fout bij ophalen series genres:", err.message);
+  }
+
   const languagesArray = await getLanguages();
   const filterLanguages = setOrderLanguage(language, languagesArray);
-
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  let catalogs = [];
-
-  for (const userCatalog of userCatalogs) {
-    // MDBList-catalogen overslaan in standaard loop
-    if (userCatalog.id.startsWith("mdblist_")) continue;
-
-    const catalogDef = getCatalogDefinition(userCatalog.id);
-    if (!catalogDef) continue;
-    if (catalogDef.requiresAuth && !sessionId) continue;
-
-    const catalogOptions = getOptionsForCatalog(catalogDef, userCatalog.type, userCatalog.showInHome, options);
-    catalogs.push(
-      createCatalog(
+  let catalogs = userCatalogs
+    .filter(userCatalog => {
+      const catalogDef = getCatalogDefinition(userCatalog.id);
+      if (!catalogDef) return false;
+      if (catalogDef.requiresAuth && !sessionId) return false;
+      return true;
+    })
+    .map(userCatalog => {
+      const catalogDef = getCatalogDefinition(userCatalog.id);
+      const catalogOptions = getOptionsForCatalog(catalogDef, userCatalog.type, userCatalog.showInHome, options);
+      
+      return createCatalog(
         userCatalog.id,
         userCatalog.type,
         catalogDef,
@@ -130,45 +160,26 @@ async function getManifest(config) {
         tmdbPrefix,
         translatedCatalogs,
         userCatalog.showInHome
-      )
-    );
-  }
+      );
+    });
 
-  // MDBList-catalogen toevoegen (rechtstreeks in catalog-lijst)
-  for (const userCatalog of userCatalogs) {
-    if (userCatalog.id.startsWith("mdblist_")) {
-      catalogs.push({
-        id: userCatalog.id,
-        type: userCatalog.type,
-        name: `MDBList - ${userCatalog.name}`,
-        pageSize: 20,
-        extra: [{ name: "skip" }]
-      });
-    }
-  }
-
-  // Zoekcatalogi toevoegen
   if (config.searchEnabled !== "false") {
     const searchCatalogMovie = {
       id: "tmdb.search",
       type: "movie",
       name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
-      extra: [{ name: "search", isRequired: true }]
+      extra: [{ name: "search", isRequired: true, options: [] }]
     };
+
     const searchCatalogSeries = {
       id: "tmdb.search",
       type: "series",
       name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
-      extra: [{ name: "search", isRequired: true }]
+      extra: [{ name: "search", isRequired: true, options: [] }]
     };
-    catalogs.push(searchCatalogMovie, searchCatalogSeries);
-  }
 
-  // Manifest beschrijving + metadata
-  const stremioAddonsConfig = {
-    issuer: "https://stremio-addons.net",
-    signature: "eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..DTiTHmYyIbuTMPJB35cqsw.S2C6xuCL9OoHJbtX97v-2w3IM4iFqr2Qy4xRRlvyzIY2fZAcwmm6JUMdsc2LSTigIPQeGPomaqX53ECt23cJKuH-IKs4hHLH4sLYRZNL_VC0YefQNrWjMRZ75Yz-bVx3.DJZBtIb1bOCq6Z62AMUGvw"
-  };
+    catalogs = [...catalogs, searchCatalogMovie, searchCatalogSeries];
+  }
 
   const activeConfigs = [
     `Language: ${language}`,
@@ -184,26 +195,25 @@ async function getManifest(config) {
     version: packageJson.version,
     favicon: `${process.env.HOST_NAME}/favicon.png`,
     logo: `${process.env.HOST_NAME}/logo.png`,
-    background: `${process.env.HOST_NAME}/background.png`,
+    background: `${process.env.HOST_NAME}/background.png`,  
     name: "The Movie Database",
-    description: "Stremio addon that provides rich metadata for movies and TV shows from TMDB, featuring customizable catalogs, multi-language support, favorites lists, watchlist, ratings, and IMDb integration. Current settings: " + activeConfigs,
+    description: "Fork of the TMDB addon for use with Omni (https://omni.stkc.win). Current settings: " + activeConfigs,
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
-    stremioAddonsConfig,
     behaviorHints: {
       configurable: true,
       configurationRequired: false,
     },
-    catalogs
+    catalogs,
   };
 }
 
 function getDefaultCatalogs() {
   const defaultTypes = ['movie', 'series'];
   const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
-
-  return defaultCatalogs.flatMap(id =>
+  
+  return defaultCatalogs.flatMap(id => 
     defaultTypes.map(type => ({
       id: `tmdb.${id}`,
       type,
