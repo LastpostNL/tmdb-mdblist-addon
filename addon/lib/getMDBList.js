@@ -1,4 +1,5 @@
-const { parseMDBListItem } = require("../utils/parseProps");
+const { parseMDBListItem, parseMedia } = require("../utils/parseProps");
+const fetch = require("node-fetch"); // Als fetch niet global is
 
 // Haalt alle lijsten op van de gebruiker voor in de configpagina
 async function getMDBLists(userToken) {
@@ -24,11 +25,36 @@ async function getMDBLists(userToken) {
   }
 }
 
+// Helper: TMDb zoeken via imdb_id (krijgt TMDb ID)
+async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-NL") {
+  try {
+    // Zoek TMDb-ID via external_id endpoint
+    const url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${tmdbApiKey}&language=${language}&external_source=imdb_id`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`TMDb lookup failed for ${imdbId}: HTTP ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+
+    // Afhankelijk van type, zoek in movies of tv_results
+    const results = type === "movie" ? data.movie_results : data.tv_results;
+    if (results && results.length > 0) {
+      return results[0]; // Eerste resultaat
+    }
+    return null;
+  } catch (e) {
+    console.error("Error in getTmdbDetailsByImdbId:", e);
+    return null;
+  }
+}
+
 // Haalt één specifieke lijst op en retourneert object { metas: [] }
 async function getMDBList(type, id, page, language, config) {
   const listId = id;
   const safeConfig = config || {};
   const userToken = safeConfig.mdblistUserToken;
+  const tmdbApiKey = safeConfig.tmdbApiKey; // TMDb API-key in config
 
   if (!userToken) {
     console.error("MDBList user token ontbreekt of config is niet meegegeven:", config);
@@ -48,9 +74,32 @@ async function getMDBList(type, id, page, language, config) {
 
     const data = await response.json();
     const itemsArray = type === "movie" ? data.movies : data.shows;
-    const metas = (itemsArray || []).map(item => parseMDBListItem(item, type));
 
-    return { metas };
+    if (!itemsArray || itemsArray.length === 0) {
+      return { metas: [] };
+    }
+
+    // Als TMDb API key beschikbaar is, haal TMDb details per item op voor rijke metadata
+    if (tmdbApiKey) {
+      const metas = [];
+
+      for (const item of itemsArray) {
+        if (item.imdb_id) {
+          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
+          if (tmdbDetails) {
+            metas.push(parseMedia(tmdbDetails, type));
+            continue;
+          }
+        }
+        // Fallback naar basis-parse als TMDb lookup niet lukt of imdb_id ontbreekt
+        metas.push(parseMDBListItem(item, type));
+      }
+      return { metas };
+    } else {
+      // Zonder TMDb key gewoon de basisitems teruggeven
+      const metas = itemsArray.map(item => parseMDBListItem(item, type));
+      return { metas };
+    }
   } catch (err) {
     console.error("Error in getMDBList():", err);
     return { metas: [] };
