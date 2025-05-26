@@ -146,7 +146,7 @@ if (config.mdblistUserToken) {
   try {
     const mdblistCatalogs = await getMDBLists(config.mdblistUserToken);
     mdblistCatalogs.forEach(list => {
-      const id = `mdblist_${list.slug}`;
+      const id = `mdblist_${list.id}`;   // gebruik list.id ipv list.slug
       const name = list.name || list.slug;
       const type = list.type === 'show' ? 'series' : 'movie';
 
