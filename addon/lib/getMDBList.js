@@ -1,4 +1,3 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { parseMedia } = require("../utils/parseProps");
 
 // Haalt alle lijsten op van de gebruiker voor in de configpagina
