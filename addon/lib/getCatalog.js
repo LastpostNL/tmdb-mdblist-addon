@@ -99,7 +99,7 @@ async function getMDBListCatalog(id, extraInputs, config) {
   try {
     const res = await fetch(`${url}?page=${page}`, {
       headers: {
-        Authorization: `Bearer ${config.mdblistToken || ""}`
+        Authorization: `Bearer ${config.mdblistkey || ""}`
       }
     });
 
