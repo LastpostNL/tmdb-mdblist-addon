@@ -4,7 +4,7 @@ const { getLanguages } = require("./getLanguages");
 const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
-const DEFAULT_LANGUAGE = "en-US";
+const DEFAULT_LANGUAGE = "en-US");
 
 // Fallback voor HOST_NAME
 const HOST_NAME = process.env.HOST_NAME || "https://tmdb-mdblist-addon.onrender.com";
@@ -40,21 +40,32 @@ function loadTranslations(language) {
   return { ...defaultTranslations, ...selectedTranslations };
 }
 
+function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
+  if (catalogDef.defaultOptions) return catalogDef.defaultOptions;
+
+  const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
+  const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
+
+  switch (catalogDef.nameKey) {
+    case 'year':
+      return years;
+    case 'language':
+      return filterLanguages;
+    case 'popular':
+      return type === 'movie' ? movieGenres : seriesGenres;
+    default:
+      return type === 'movie' ? movieGenres : seriesGenres;
+  }
+}
+
 function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCatalogs, showInHome = false) {
   const extra = [];
   if (catalogDef.extraSupported.includes("genre")) {
-    const opts = catalogDef.defaultOptions
-      ? catalogDef.defaultOptions.map(option => {
-          if (option.includes('.')) {
-            const [field, order] = option.split('.');
-            if (translatedCatalogs[field] && translatedCatalogs[order]) {
-              return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
-            }
-          }
-          return translatedCatalogs[option] || option;
-        })
-      : options[type === "movie" ? "genres_movie" : "genres_series"];
-    extra.push({ name: "genre", options: opts, isRequired: !showInHome });
+    extra.push({
+      name: "genre",
+      options: Array.isArray(options) ? options : options,
+      isRequired: !showInHome
+    });
   }
   if (catalogDef.extraSupported.includes("search")) extra.push({ name: "search" });
   if (catalogDef.extraSupported.includes("skip")) extra.push({ name: "skip" });
@@ -100,7 +111,7 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  // Filter standaard TMDB-catalogi (uit userCatalogs)
+  // TMDB-catalogi
   const tmdbCatalogs = userCatalogs
     .filter(cat => !cat.id.startsWith("mdblist_"))
     .filter(cat => {
@@ -113,7 +124,7 @@ async function getManifest(config) {
       return createCatalog(cat.id, cat.type, def, opts, tmdbPrefix, translatedCatalogs, cat.showInHome);
     });
 
-  // MDBList-catalogi: filter op prefix en enabled (userCatalogs bevat enabled=false/true)
+  // MDBList-catalogi: alleen enabled
   const mdblistCatalogs = userCatalogs
     .filter(cat => cat.id.startsWith("mdblist_") && cat.enabled)
     .map(cat => ({
@@ -123,7 +134,7 @@ async function getManifest(config) {
       extra: [{ name: "search", isRequired: false }],
     }));
 
-  // Voeg search-catalogi toe als ingeschakeld
+  // Search-catalogi
   const searchCatalogs = [];
   if (config.searchEnabled !== "false") {
     searchCatalogs.push(
@@ -132,11 +143,7 @@ async function getManifest(config) {
     );
   }
 
-  const catalogs = [
-    ...tmdbCatalogs,
-    ...mdblistCatalogs,
-    ...searchCatalogs
-  ];
+  const catalogs = [...tmdbCatalogs, ...mdblistCatalogs, ...searchCatalogs];
 
   console.log("Final catalog IDs:", catalogs.map(c => c.id));
   console.log("HOST_NAME:", HOST_NAME);
@@ -161,10 +168,6 @@ async function getManifest(config) {
     behaviorHints: { configurable: true, configurationRequired: false },
     catalogs,
   };
-}
-
-function getDefaultCatalogs() {
-  return [];
 }
 
 module.exports = { getManifest };
