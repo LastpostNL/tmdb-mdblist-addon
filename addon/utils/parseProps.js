@@ -204,10 +204,11 @@ function parseMDBListItem(item, type) {
     name: item.title,
     year: item.release_year,
     imdb_id: item.imdb_id || undefined,
-    poster: null,
-    background: null,
+    poster: item.poster || null,  // poster direct uit MDBList gebruiken
+    background: item.backdrop || null,
     posterShape: "regular",
-    description: "",
+    description: item.description || "",
+    genre: item.genres ? item.genres.map(g => g.name) : [],
   };
 }
 
