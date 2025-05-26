@@ -26,7 +26,7 @@ async function getMDBLists(userToken) {
 
 // Haalt één specifieke lijst op en retourneert object { metas: [] }
 async function getMDBList(type, language, page, id, config) {
-  const listId = id.replace("mdblist.", ""); // strip prefix mdblist.
+  const listId = id.replace("mdblist.", ""); // prefix weghalen
   const userToken = config.mdblistUserToken;
 
   if (!userToken) {
@@ -47,7 +47,7 @@ async function getMDBList(type, language, page, id, config) {
 
     const data = await response.json();
 
-    // Filter items by type (movie/show)
+    // Filter items op type (movie/show)
     const filteredItems = (Array.isArray(data.items) ? data.items : []).filter(item => {
       return type === "movie" ? item.type === "movie" : item.type === "show";
     });
