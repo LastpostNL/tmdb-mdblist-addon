@@ -11,7 +11,7 @@ async function getCatalog(type, language, page, id, genre, config) {
 config = config || {};
   // MDBList ondersteuning
   if (id.startsWith("mdblist_")) {
-    return await getMDBList(type, language, page, id, config);
+return await getMDBList(type, id, page, language, config);
   }
   const genreList = await getGenreList(language, type);
   const parameters = await buildParameters(type, language, page, id, genre, genreList, config);
