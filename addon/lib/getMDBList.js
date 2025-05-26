@@ -48,7 +48,8 @@ async function getMDBList(type, id, page, language, config) {
 
     const data = await response.json();
     const itemsArray = type === "movie" ? data.movies : data.shows;
-    const metas = (itemsArray || []).map(item => parseMedia(item, type));
+const metas = (itemsArray || []).map(item => parseMDBListItem(item, type));
+
 
     return { metas };
   } catch (err) {
