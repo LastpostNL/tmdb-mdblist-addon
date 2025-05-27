@@ -10,8 +10,9 @@ const CATALOG_TYPES = require("../static/catalog-types.json");
 async function getCatalog(type, language, page, id, genre, config) {
   config = config || {};
 
-  if (id.startsWith("mdblist_") && id.length > 8) {
-    console.log(`[MDBList] getCatalog called with id=${id}, type=${type}`);
+  // Als id puur cijfers bevat => MDBList oproepen
+  if (/^\d+$/.test(id)) {
+    console.log(`[MDBList] getCatalog called with numeric id=${id}, type=${type}`);
     const result = await getMDBList(type, id, page, language, config);
     console.log(`[MDBList] getCatalog result: metas count=${result.metas.length}`);
     return result;
