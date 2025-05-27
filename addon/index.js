@@ -163,10 +163,9 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (re
     if (search) {
       metas = await getSearch(type, language, search, config);
     } else {
-      if (id.startsWith("mdblist_")) {
-        // MDBList lijst-items ophalen
-        const listId = id.substring("mdblist_".length);
-        metas = await getMDBList(type, listId, page, language, config);
+      // Nieuwe check: als id puur cijfers bevat => MDBList lijst
+      if (/^\d+$/.test(id)) {
+        metas = await getMDBList(type, id, page, language, config);
       } else {
         switch (id) {
           case "tmdb.trending":
