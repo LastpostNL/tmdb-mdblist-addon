@@ -56,11 +56,15 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // id is in form 'mdblist_<listId>_<type>'
-  const parts = id.split('_');
-  const listId = parts[1];
+  // ✅ Haal listId via regexp uit id 'mdblist_<listId>_<type>'
+  const match = id.match(/^mdblist_(\d+)_/);
+  const listId = match ? match[1] : null;
 
-  // Append poster & genre ophalen via API
+  if (!listId) {
+    console.error("[MDBList] Ongeldig ID-formaat:", id);
+    return { metas: [] };
+  }
+
   const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
