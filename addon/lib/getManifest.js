@@ -156,24 +156,23 @@ async function getManifest(config) {
     }
   }
 
-const catalogs = [];
-
 // Bewaar originele volgorde, maar splits eerst op movies en series
 const sortedCatalogs = [
-  ...config.catalogs.filter(c => c.type === "movie" && c.enabled !== false),
-  ...config.catalogs.filter(c => c.type === "series" && c.enabled !== false)
+  ...config.catalogs.filter(c => c.type === "movie" && c.enabled === true),
+  ...config.catalogs.filter(c => c.type === "series" && c.enabled === true)
 ];
 
 for (const c of sortedCatalogs) {
   // MDBList-catalogus
   if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
+    // Alleen toevoegen als enabled = true (check hierboven al gedaan)
     catalogs.push({
       id: c.id,
       type: c.type,
-      name: c.name.replace(/^MDBList - /i, "").trim(), // 👈 altijd strippen
+      name: c.name.replace(/^MDBList - /i, "").trim(),
       pageSize: 20,
       extra: [{ name: "skip" }],
-      showInHome: c.showInHome
+      showInHome: !!c.showInHome
     });
     continue;
   }
