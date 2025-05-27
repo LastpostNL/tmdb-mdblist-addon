@@ -16,6 +16,7 @@ async function getMDBLists(mdblistkey) {
     const data = await response.json();
     console.log("[MDBList] Fetched user lists:", data);
 
+    // Data moet een array zijn; fallback naar lege array
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("[MDBList] Error in getMDBLists():", err);
@@ -49,7 +50,7 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
 async function getMDBList(type, id, page, language, config) {
   const listId = id;
   const safeConfig = config || {};
-  const mdblistkey = safeConfig.mdblistkey;  // consistent tokennaam
+  const mdblistkey = safeConfig.mdblistkey;  // let op consistentie van de key
   const tmdbApiKey = safeConfig.tmdbApiKey;
 
   if (!mdblistkey) {
@@ -57,7 +58,7 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // Append poster & genre ophalen via API
+  // URL met append_to_response voor extra data
   const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
@@ -70,14 +71,16 @@ async function getMDBList(type, id, page, language, config) {
     }
 
     const data = await response.json();
+
+    // Kies juiste media-array afhankelijk van type
     const itemsArray = type === "movie" ? data.movies : data.shows;
 
     if (!itemsArray || itemsArray.length === 0) {
       return { metas: [] };
     }
 
-    // Gebruik direct de poster & genres uit MDBList indien aanwezig, fallback naar TMDb alleen als TMDb API key aanwezig is
     if (tmdbApiKey) {
+      // Combineer MDBList data en TMDb fallback
       const metas = [];
       for (const item of itemsArray) {
         if (item.poster && item.genres) {
@@ -95,6 +98,7 @@ async function getMDBList(type, id, page, language, config) {
       }
       return { metas };
     } else {
+      // Geen TMDb fallback, puur MDBList
       const metas = itemsArray.map(item => parseMDBListItem(item, type));
       return { metas };
     }
