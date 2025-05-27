@@ -168,22 +168,17 @@ try {
       metas = await getMDBList(type, id, page, language, config);
     } else {
       switch (id) {
-        case "tmdb.trending":
-          metas = await getTrending(type, language, page, genre);
+case "tmdb.trending":
+          metas = await getTrending(...args, genre);
           break;
         case "tmdb.favorites":
-          metas = await getFavorites(type, language, page, genre, sessionId);
+          metas = await getFavorites(...args, genre, sessionId);
           break;
         case "tmdb.watchlist":
-          metas = await getWatchList(type, language, page, genre, sessionId);
-          break;
-      case "tmdb.top":
-          console.log("→ GET /catalog", type, id, "page", page);
-          metas = await getCatalog(type, language, page, id, genre, config);
-          console.log("   → tmdb.popular metas count:", metas.metas.length);
+          metas = await getWatchList(...args, genre, sessionId);
           break;
         default:
-          metas = await getCatalog(type, language, page, id, genre, config);
+          metas = await getCatalog(...args, id, genre, config);
           break;
       }
     }
