@@ -119,7 +119,7 @@ async function getManifest(config) {
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
-  const userCatalogs = config.catalogs || getDefaultCatalogs();
+  config.catalogs = config.catalogs || getDefaultCatalogs();
   const translatedCatalogs = loadTranslations(language);
 
   // TMDB essentials
@@ -130,21 +130,66 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  // Bouw de TMDB-catalogi
-  let catalogs = userCatalogs
-    .filter(uc => {
-      const def = getCatalogDefinition(uc.id);
-      if (!def) return false;
-      if (def.requiresAuth && !sessionId) return false;
-      return !uc.id.startsWith("mdblist."); // MDBList catalogi behandelen we straks apart
+  // Voeg MDBList catalogi toe aan config.catalogs als ze nog niet bestaan
+  if (config.mdblistkey) {
+    const { getMDBLists } = require("./getMDBList");
+    try {
+      const mdblistLists = await getMDBLists(config.mdblistkey);
+
+      for (const list of mdblistLists) {
+        const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
+
+        if (hasMovies && !config.catalogs.find(c => c.id === `mdblist_${list.id}_movie`)) {
+          config.catalogs.push({
+            id: `mdblist_${list.id}_movie`,
+            type: "movie",
+            name: `MDBList - ${list.name} (Movies)`,
+            showInHome: false,
+            enabled: false,
+          });
+        }
+        if (hasShows && !config.catalogs.find(c => c.id === `mdblist_${list.id}_series`)) {
+          config.catalogs.push({
+            id: `mdblist_${list.id}_series`,
+            type: "series",
+            name: `MDBList - ${list.name} (Series)`,
+            showInHome: false,
+            enabled: false,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch MDBList catalogs:", err);
+    }
+  }
+
+  // Bouw catalogs array enkel met ingeschakelde catalogi
+  const catalogs = config.catalogs
+    .filter(c => c.enabled)
+    .map(c => {
+      // MDBList catalogi met mdblist_ prefix
+      if (c.id.startsWith("mdblist_")) {
+        const parts = c.id.split('_');
+        const listId = parts[1];
+        const mediaType = parts[2];
+        const listName = c.name || "MDBList List";
+        return {
+          id: c.id,
+          type: mediaType,
+          name: listName,
+          pageSize: 20,
+          extra: [{ name: "skip" }],
+          showInHome: c.showInHome || false
+        };
+      }
+
+      // TMDB catalogi
+      const def = getCatalogDefinition(c.id);
+      if (!def) return null;
+      const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
+      return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
     })
-    .map(uc => {
-      const def = getCatalogDefinition(uc.id);
-      const opts = getOptionsForCatalog(def, uc.type, uc.showInHome, options);
-      return createCatalog(
-        uc.id, uc.type, def, opts, tmdbPrefix, translatedCatalogs, uc.showInHome
-      );
-    });
+    .filter(Boolean);
 
   // TMDB search-catalogi toevoegen als ingeschakeld
   if (config.searchEnabled !== "false") {
@@ -158,45 +203,6 @@ async function getManifest(config) {
       });
     });
   }
-
-// MDBList catalogi toevoegen
-if (config.mdblistkey) {
-  const { getMDBLists } = require("./getMDBList");
-  try {
-    const mdblistLists = await getMDBLists(config.mdblistkey);
-
-    for (const list of mdblistLists) {
-      const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
-
-      // Voeg movie catalogus toe als er movies zijn
-      if (hasMovies) {
-        catalogs.push({
-          id: `mdblist_${list.id}_movie`,
-          type: "movie",
-          name: `MDBList - ${list.name} (Movies)`,
-          pageSize: 20,
-          extra: [{ name: "skip" }],
-          showInHome: false
-        });
-      }
-
-      // Voeg series catalogus toe als er shows zijn
-      if (hasShows) {
-        catalogs.push({
-          id: `mdblist_${list.id}_series`,
-          type: "series",
-          name: `MDBList - ${list.name} (Series)`,
-          pageSize: 20,
-          extra: [{ name: "skip" }],
-          showInHome: false
-        });
-      }
-    }
-  } catch (err) {
-    console.error("Failed to fetch MDBList catalogs:", err);
-  }
-}
-
 
   // Metadata beschrijving
   const activeConfigs = [
@@ -238,7 +244,8 @@ function getDefaultCatalogs() {
     defaultTypes.map(type => ({
       id: `tmdb.${id}`,
       type,
-      showInHome: true
+      showInHome: true,
+      enabled: true,
     }))
   );
 }
