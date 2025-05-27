@@ -6,7 +6,7 @@ const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 
-const DEFAULT_LANGUAGE = "nl-NL";
+const DEFAULT_LANGUAGE = "en-US";
 
 function generateArrayOfYears(maxYears) {
   const currentYear = new Date().getFullYear();
