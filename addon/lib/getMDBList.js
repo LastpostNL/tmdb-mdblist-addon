@@ -53,7 +53,7 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // Nieuw: id is gewoon een puur getal string, bv: '97574'
+  // id is een puur numerieke string, bv: '97574'
   const listId = id;
 
   // Validatie: listId moet een getal zijn
