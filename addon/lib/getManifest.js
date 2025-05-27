@@ -270,43 +270,29 @@ if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type ==
 
   console.log(`[getManifest] Finished manifest generation. Active configs: ${activeConfigs}`);
 
-  return {
+   return {
     id: packageJson.name,
     version: packageJson.version,
-    favicon: `${process.env.HOST_NAME}/favicon.png`,
-    logo: `${process.env.HOST_NAME}/logo.png`,
-    background: `${process.env.HOST_NAME}/background.png`,
-    name: "The Movie Database",
-    description: `Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs}`,
+    name: translatedCatalogs.addon_name || "TMDb Addon",
+    description: translatedCatalogs.addon_description || "A Stremio addon based on The Movie Database (TMDb)",
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
-    idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
-    stremioAddonsConfig: {
-      issuer: "https://stremio-addons.net",
-      signature: ""
-    },
+    catalogs,
     behaviorHints: {
-      configurable: true,
-      configurationRequired: false
+      configurationRequired: true,
+      configurable: true
     },
-    catalogs
+    idPrefixes: provideImdbId ? ["tt"] : [],
+    background: `${process.env.HOST_NAME}/background.jpg`,
+    logo: `${process.env.HOST_NAME}/logo.png`
   };
 }
 
 function getDefaultCatalogs() {
-  console.log(`[getDefaultCatalogs] Generating default catalogs`);
-  const defaultTypes = ["movie", "series"];
-  const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
-  const result = defaultCatalogs.flatMap(id =>
-    defaultTypes.map(type => ({
-      id: `tmdb.${id}`,
-      type,
-      showInHome: true,
-      enabled: true
-    }))
-  );
-  console.log(`[getDefaultCatalogs] Default catalogs generated:`, result);
-  return result;
+  return [
+    { id: "tmdb.popular", type: "movie", enabled: true, showInHome: true },
+    { id: "tmdb.popular", type: "series", enabled: true, showInHome: true }
+  ];
 }
 
-module.exports = { getManifest, DEFAULT_LANGUAGE };
+module.exports = { getManifest };
