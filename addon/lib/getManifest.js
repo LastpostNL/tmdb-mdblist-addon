@@ -190,27 +190,28 @@ async function getManifest(config) {
         console.log(`[getManifest] List hasMovies=${hasMovies}, hasShows=${hasShows}`);
 
         // Voeg lijsten toe als movie en/of series catalogus indien nog niet toegevoegd
-        if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
-          console.log(`[getManifest] Adding MDBList movie catalog for list ${list.id}`);
-          config.catalogs.push({
-            id: String(list.id),
-            type: "movie",
-            name: `MDBList - ${list.name} (Movies)`,
-            showInHome: false,
-            enabled: false
-          });
-        }
-        if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
-          console.log(`[getManifest] Adding MDBList series catalog for list ${list.id}`);
-          config.catalogs.push({
-            id: String(list.id),
-            type: "series",
-            name: `MDBList - ${list.name} (Series)`,
-            showInHome: false,
-            enabled: false
-          });
-        }
-      }
+if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
+  const catalogMovie = {
+    id: String(list.id),
+    type: "movie",
+    name: `MDBList - ${list.name} (Movies)`,
+    showInHome: false,
+    enabled: false
+  };
+  config.catalogs.push(catalogMovie);
+  console.log(`[getManifest] Added MDBList movie catalog: id=${catalogMovie.id}, type=${catalogMovie.type}, showInHome=${catalogMovie.showInHome}`);
+}
+if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
+  const catalogSeries = {
+    id: String(list.id),
+    type: "series",
+    name: `MDBList - ${list.name} (Series)`,
+    showInHome: false,
+    enabled: false
+  };
+  config.catalogs.push(catalogSeries);
+  console.log(`[getManifest] Added MDBList series catalog: id=${catalogSeries.id}, type=${catalogSeries.type}, showInHome=${catalogSeries.showInHome}`);
+}
     } catch (err) {
       console.error("❌ Failed to fetch MDBList catalogs:", err);
     }
