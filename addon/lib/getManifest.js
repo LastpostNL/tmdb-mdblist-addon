@@ -36,7 +36,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
     const formatted = (catalogDef.defaultOptions || options).map(opt => {
       if (opt.includes(".")) {
         const [field, order] = opt.split(".");
-        return `${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order})`;
+        return ${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order});
       }
       return translatedCatalogs[opt] || opt;
     });
@@ -48,7 +48,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
   return {
     id,
     type,
-    name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]}`,
+    name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]},
     pageSize: 20,
     extra
   };
@@ -61,19 +61,26 @@ function getCatalogDefinition(catalogId) {
 
 function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
   if (catalogDef.defaultOptions) return catalogDef.defaultOptions;
-  const baseGenres = type === "movie" ? genres_movie : genres_series;
-  const genres = showInHome ? [...baseGenres] : ["Top", ...baseGenres];
+
+  const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
+  const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
+
   switch (catalogDef.nameKey) {
-    case "year": return years;
-    case "language": return filterLanguages;
-    default: return genres;
+    case 'year':
+      return years;
+    case 'language':
+      return filterLanguages;
+    case 'popular':
+      return type === 'movie' ? movieGenres : seriesGenres;
+    default:
+      return type === 'movie' ? movieGenres : seriesGenres;
   }
 }
 
 async function getMDBListItems(listId, apiKey) {
   try {
-    const res = await fetch(`https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`);
-    if (!res.ok) throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
+    const res = await fetch(https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey});
+    if (!res.ok) throw new Error(Failed to fetch list items for ${listId}: ${res.statusText});
     const data = await res.json();
     return {
       hasMovies: Array.isArray(data.movies) && data.movies.length > 0,
@@ -91,6 +98,7 @@ async function getManifest(config) {
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
+  const catalogs = []; 
 
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     // Map mdblist catalog entries to use pure list IDs as catalog ids, no prefix/suffix
@@ -103,7 +111,7 @@ async function getManifest(config) {
           ...c,
           id: listId,       // Gebruik puur lijst-ID als catalog id
           type,
-          name: `MDBList - ${listInfoById[listId] || listId}`
+          name: ${listInfoById[listId] || listId}
         };
       }
       return c;
@@ -129,7 +137,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "movie",
-            name: `MDBList - ${list.name} (Movies)`,
+            name: list.name.replace(/^MDBList - /i, "").trim(),
             showInHome: false,
             enabled: false
           });
@@ -138,7 +146,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "series",
-            name: `MDBList - ${list.name} (Series)`,
+            name: list.name.replace(/^MDBList - /i, "").trim(),
             showInHome: false,
             enabled: false
           });
@@ -149,36 +157,40 @@ async function getManifest(config) {
     }
   }
 
-  const catalogs = config.catalogs
-    .filter(c => c.enabled !== false)
-    .map(c => {
-      // Check of c.id overeenkomt met een MDBList-lijst-ID (als string) en dat mdblistLists aanwezig is
-      if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
-        // MDBList catalogus: id is lijst-ID puur, type en name komen uit config
-        return {
-          id: c.id,
-          type: c.type,
-          name: c.name,
-          pageSize: 20,
-          extra: [{ name: "skip" }],
-          showInHome: c.showInHome
-        };
-      }
+// Bewaar originele volgorde, maar splits eerst op movies en series
+const sortedCatalogs = [
+  ...config.catalogs.filter(c => c.type === "movie" && c.enabled === true),
+  ...config.catalogs.filter(c => c.type === "series" && c.enabled === true)
+];
 
-      // TMDB-catalogus
-      const def = getCatalogDefinition(c.id);
-      if (!def) return null;
-      const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
-      return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
-    })
-    .filter(Boolean);
+for (const c of sortedCatalogs) {
+  // MDBList-catalogus
+  if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
+    // Alleen toevoegen als enabled = true (check hierboven al gedaan)
+    catalogs.push({
+      id: c.id,
+      type: c.type,
+      name: c.name.replace(/^MDBList - /i, "").trim(),
+      pageSize: 20,
+      extra: [{ name: "skip" }],
+      showInHome: !!c.showInHome
+    });
+    continue;
+  }
+
+  // TMDB-catalogus
+  const def = getCatalogDefinition(c.id);
+  if (!def) continue;
+  const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
+  catalogs.push(createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome));
+}
 
   if (config.searchEnabled !== "false") {
     ["movie", "series"].forEach(type => {
       catalogs.push({
         id: "tmdb.search",
         type,
-        name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
+        name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search},
         pageSize: 20,
         extra: [{ name: "search", isRequired: true }]
       });
@@ -186,22 +198,25 @@ async function getManifest(config) {
   }
 
   const activeConfigs = [
-    `Language: ${language}`,
-    `TMDB Account: ${sessionId ? "Connected" : "Not Connected"}`,
-    `IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"}`,
-    `RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"}`,
-    `Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"}`,
-    `Active Catalogs: ${catalogs.length}`
+    Language: ${language},
+    TMDB Account: ${sessionId ? "Connected" : "Not Connected"},
+    IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"},
+    RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"},
+    Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"},
+    Active Catalogs: ${catalogs.length}
   ].join(" | ");
+
+  // *** DEBUG: welke catalog IDs worden teruggestuurd? ***
+  console.log("🔍 Manifest catalogs:", catalogs.map(c => c.id));
 
   return {
     id: packageJson.name,
     version: packageJson.version,
-    favicon: `${process.env.HOST_NAME}/favicon.png`,
-    logo: `${process.env.HOST_NAME}/logo.png`,
-    background: `${process.env.HOST_NAME}/background.png`,
+    favicon: ${process.env.HOST_NAME}/favicon.png,
+    logo: ${process.env.HOST_NAME}/logo.png,
+    background: ${process.env.HOST_NAME}/background.png,
     name: "The Movie Database",
-    description: `Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs}`,
+    description: Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs},
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
@@ -222,7 +237,7 @@ function getDefaultCatalogs() {
   const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
   return defaultCatalogs.flatMap(id =>
     defaultTypes.map(type => ({
-      id: `tmdb.${id}`,
+      id: tmdb.${id},
       type,
       showInHome: true,
       enabled: true
