@@ -36,7 +36,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
     const formatted = (catalogDef.defaultOptions || options).map(opt => {
       if (opt.includes(".")) {
         const [field, order] = opt.split(".");
-        return `${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order})`;
+        return ${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order});
       }
       return translatedCatalogs[opt] || opt;
     });
@@ -48,7 +48,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
   return {
     id,
     type,
-    name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]}`,
+    name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]},
     pageSize: 20,
     extra
   };
@@ -79,8 +79,8 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
 
 async function getMDBListItems(listId, apiKey) {
   try {
-    const res = await fetch(`https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`);
-    if (!res.ok) throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
+    const res = await fetch(https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey});
+    if (!res.ok) throw new Error(Failed to fetch list items for ${listId}: ${res.statusText});
     const data = await res.json();
     return {
       hasMovies: Array.isArray(data.movies) && data.movies.length > 0,
@@ -98,7 +98,6 @@ async function getManifest(config) {
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
-  const catalogs = []; 
 
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     // Map mdblist catalog entries to use pure list IDs as catalog ids, no prefix/suffix
@@ -111,7 +110,7 @@ async function getManifest(config) {
           ...c,
           id: listId,       // Gebruik puur lijst-ID als catalog id
           type,
-          name: `${listInfoById[listId] || listId}`
+          name: ${listInfoById[listId] || listId}
         };
       }
       return c;
@@ -190,7 +189,7 @@ for (const c of sortedCatalogs) {
       catalogs.push({
         id: "tmdb.search",
         type,
-        name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
+        name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search},
         pageSize: 20,
         extra: [{ name: "search", isRequired: true }]
       });
@@ -198,12 +197,12 @@ for (const c of sortedCatalogs) {
   }
 
   const activeConfigs = [
-    `Language: ${language}`,
-    `TMDB Account: ${sessionId ? "Connected" : "Not Connected"}`,
-    `IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"}`,
-    `RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"}`,
-    `Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"}`,
-    `Active Catalogs: ${catalogs.length}`
+    Language: ${language},
+    TMDB Account: ${sessionId ? "Connected" : "Not Connected"},
+    IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"},
+    RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"},
+    Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"},
+    Active Catalogs: ${catalogs.length}
   ].join(" | ");
 
   // *** DEBUG: welke catalog IDs worden teruggestuurd? ***
@@ -212,11 +211,11 @@ for (const c of sortedCatalogs) {
   return {
     id: packageJson.name,
     version: packageJson.version,
-    favicon: `${process.env.HOST_NAME}/favicon.png`,
-    logo: `${process.env.HOST_NAME}/logo.png`,
-    background: `${process.env.HOST_NAME}/background.png`,
+    favicon: ${process.env.HOST_NAME}/favicon.png,
+    logo: ${process.env.HOST_NAME}/logo.png,
+    background: ${process.env.HOST_NAME}/background.png,
     name: "The Movie Database",
-    description: `Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs}`,
+    description: Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs},
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
@@ -237,7 +236,7 @@ function getDefaultCatalogs() {
   const defaultCatalogs = Object.keys(CATALOG_TYPES.default);
   return defaultCatalogs.flatMap(id =>
     defaultTypes.map(type => ({
-      id: `tmdb.${id}`,
+      id: tmdb.${id},
       type,
       showInHome: true,
       enabled: true
