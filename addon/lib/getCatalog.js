@@ -26,9 +26,24 @@ async function getCatalog(type, language, page, id, genre, config) {
     : moviedb.discoverTv.bind(moviedb);
 
   return fetchFunction(parameters)
-    .then((res) => ({
-      metas: res.results.map(el => parseMedia(el, type, genreList))
-    }))
+    .then(async (res) => {
+      // Voor elk item extra trailers ophalen
+      const resultsWithTrailers = await Promise.all(res.results.map(async (el) => {
+        // Video's ophalen per media item
+        const videos = type === "movie"
+          ? await moviedb.movieVideos({ id: el.id })
+          : await moviedb.tvVideos({ id: el.id });
+
+        // Eerste YouTube trailer zoeken
+        const trailerObj = videos.results.find(v => v.site === "YouTube" && v.type === "Trailer");
+        const trailer = trailerObj ? `yt_id:${trailerObj.key}` : null;
+
+        // Media parsen met trailer meegeven
+        return parseMedia(el, type, genreList, trailer);
+      }));
+
+      return { metas: resultsWithTrailers };
+    })
     .catch((err) => {
       console.error("Error in getCatalog:", err);
       return { metas: [] };
