@@ -35,10 +35,7 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
     const data = await res.json();
 
     const results = type === "movie" ? data.movie_results : data.tv_results;
-    if (results && results.length > 0) {
-      return results[0];
-    }
-    return null;
+    return results && results.length > 0 ? results[0] : null;
   } catch (e) {
     console.error("[TMDb] Error in getTmdbDetailsByImdbId:", e);
     return null;
@@ -56,16 +53,13 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // ✅ Haal listId via regexp uit id 'mdblist_<listId>_<type>'
-  const match = id.match(/^mdblist_(\d+)_/);
-  const listId = match ? match[1] : null;
-
-  if (!listId) {
-    console.error("[MDBList] Ongeldig ID-formaat:", id);
+  // ✅ Verwacht nu dat `id` direct het lijstnummer is, zoals '97574'
+  if (!/^\d+$/.test(id)) {
+    console.error("[MDBList] Ongeldig lijst-ID (verwacht getal):", id);
     return { metas: [] };
   }
 
-  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
+  const url = `https://api.mdblist.com/lists/${id}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
   try {
@@ -89,16 +83,12 @@ async function getMDBList(type, id, page, language, config) {
       for (const item of itemsArray) {
         if (item.poster && item.genre) {
           metas.push(parseMDBListItem(item, type));
-          continue;
-        }
-        if (item.imdb_id) {
+        } else if (item.imdb_id) {
           const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
-          if (tmdbDetails) {
-            metas.push(parseMedia(tmdbDetails, type));
-            continue;
-          }
+          metas.push(tmdbDetails ? parseMedia(tmdbDetails, type) : parseMDBListItem(item, type));
+        } else {
+          metas.push(parseMDBListItem(item, type));
         }
-        metas.push(parseMDBListItem(item, type));
       }
       return { metas };
     } else {
