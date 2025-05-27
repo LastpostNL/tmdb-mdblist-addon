@@ -53,10 +53,8 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // Verwacht id in vorm 'mdblist_<listId>_<type>', bv: mdblist_97574_movie
-  const parts = id.split('_');
-  let listId = parts[1];
-  let inferredType = parts[2] || type; // fallback op meegegeven type als niet in id zit
+  // Nieuw: id is gewoon een puur getal string, bv: '97574'
+  const listId = id;
 
   // Validatie: listId moet een getal zijn
   if (!/^\d+$/.test(listId)) {
@@ -64,7 +62,7 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // Bouw URL
+  // Bouw URL (append_to_response=genre,poster is behouden zoals voorheen)
   const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
@@ -77,7 +75,8 @@ async function getMDBList(type, id, page, language, config) {
     }
 
     const data = await response.json();
-    const itemsArray = inferredType === "movie" ? data.movies : data.shows;
+    // Kies de array op basis van type
+    const itemsArray = type === "movie" ? data.movies : data.shows;
 
     if (!itemsArray || itemsArray.length === 0) {
       return { metas: [] };
@@ -87,21 +86,21 @@ async function getMDBList(type, id, page, language, config) {
       const metas = [];
       for (const item of itemsArray) {
         if (item.poster && item.genre) {
-          metas.push(parseMDBListItem(item, inferredType));
+          metas.push(parseMDBListItem(item, type));
           continue;
         }
         if (item.imdb_id) {
-          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, inferredType, tmdbApiKey, language);
+          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
           if (tmdbDetails) {
-            metas.push(parseMedia(tmdbDetails, inferredType));
+            metas.push(parseMedia(tmdbDetails, type));
             continue;
           }
         }
-        metas.push(parseMDBListItem(item, inferredType));
+        metas.push(parseMDBListItem(item, type));
       }
       return { metas };
     } else {
-      const metas = itemsArray.map(item => parseMDBListItem(item, inferredType));
+      const metas = itemsArray.map(item => parseMDBListItem(item, type));
       return { metas };
     }
   } catch (err) {
