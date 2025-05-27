@@ -38,17 +38,28 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
   const extra = [];
 
   if (catalogDef.extraSupported.includes("genre")) {
-    const formatted = (catalogDef.defaultOptions || options).map(opt => {
-      if (opt.includes(".")) {
-        const [field, order] = opt.split(".");
-        return `${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order})`;
-      }
-      return translatedCatalogs[opt] || opt;
-    });
-    extra.push({ name: "genre", options: formatted, isRequired: !showInHome });
+    if (catalogDef.defaultOptions) {
+      const formattedOptions = catalogDef.defaultOptions.map(option => {
+        if (option.includes('.')) {
+          const [field, order] = option.split('.');
+          if (translatedCatalogs[field] && translatedCatalogs[order]) {
+            return `${translatedCatalogs[field]} (${translatedCatalogs[order]})`;
+          }
+          return option;
+        }
+        return translatedCatalogs[option] || option;
+      });
+      extra.push({ name: "genre", options: formattedOptions, isRequired: showInHome ? false : true });
+    } else {
+      extra.push({ name: "genre", options, isRequired: showInHome ? false : true });
+    }
   }
-  if (catalogDef.extraSupported.includes("search")) extra.push({ name: "search" });
-  if (catalogDef.extraSupported.includes("skip")) extra.push({ name: "skip" });
+  if (catalogDef.extraSupported.includes("search")) {
+    extra.push({ name: "search" });
+  }
+  if (catalogDef.extraSupported.includes("skip")) {
+    extra.push({ name: "skip" });
+  }
 
   return {
     id,
@@ -69,16 +80,18 @@ function getCatalogDefinition(catalogId) {
 function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
   if (catalogDef.defaultOptions) return catalogDef.defaultOptions;
 
-  const baseGenres = type === "movie" ? genres_movie : genres_series;
-  const genres = showInHome ? [...baseGenres] : ["Top", ...baseGenres];
+  const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
+  const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
 
   switch (catalogDef.nameKey) {
-    case "year":
+    case 'year':
       return years;
-    case "language":
+    case 'language':
       return filterLanguages;
+    case 'popular':
+      return type === 'movie' ? movieGenres : seriesGenres;
     default:
-      return genres;
+      return type === 'movie' ? movieGenres : seriesGenres;
   }
 }
 
