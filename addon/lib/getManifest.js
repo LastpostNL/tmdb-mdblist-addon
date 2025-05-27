@@ -129,7 +129,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "movie",
-            name: `MDBList - ${list.name} (Movies)`,
+            name: `${list.name} - Films`,
             showInHome: false,
             enabled: false
           });
@@ -138,7 +138,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "series",
-            name: `MDBList - ${list.name} (Series)`,
+            name: `${list.name} - Series`,
             showInHome: false,
             enabled: false
           });
