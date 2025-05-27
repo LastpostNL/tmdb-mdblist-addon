@@ -178,7 +178,9 @@ try {
           metas = await getWatchList(type, language, page, genre, sessionId);
           break;
       case "tmdb.popular":
+          console.log("→ GET /catalog", type, id, "page", page);
           metas = await getCatalog(type, language, page, id, genre, config);
+          console.log("   → tmdb.popular metas count:", metas.metas.length);
           break;
         default:
           metas = await getCatalog(type, language, page, id, genre, config);
