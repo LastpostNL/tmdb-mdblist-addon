@@ -61,12 +61,19 @@ function getCatalogDefinition(catalogId) {
 
 function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
   if (catalogDef.defaultOptions) return catalogDef.defaultOptions;
-  const baseGenres = type === "movie" ? genres_movie : genres_series;
-  const genres = showInHome ? [...baseGenres] : ["Top", ...baseGenres];
+
+  const movieGenres = showInHome ? [...genres_movie] : ["Top", ...genres_movie];
+  const seriesGenres = showInHome ? [...genres_series] : ["Top", ...genres_series];
+
   switch (catalogDef.nameKey) {
-    case "year": return years;
-    case "language": return filterLanguages;
-    default: return genres;
+    case 'year':
+      return years;
+    case 'language':
+      return filterLanguages;
+    case 'popular':
+      return type === 'movie' ? movieGenres : seriesGenres;
+    default:
+      return type === 'movie' ? movieGenres : seriesGenres;
   }
 }
 
