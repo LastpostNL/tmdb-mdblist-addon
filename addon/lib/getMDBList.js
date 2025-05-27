@@ -42,6 +42,28 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
   }
 }
 
+// Nieuwe helper: haal trailer (YouTube) op via TMDb API
+async function getTmdbTrailer(mediaId, mediaType, tmdbApiKey) {
+  if (!["movie", "tv"].includes(mediaType)) {
+    return null;
+  }
+
+  const url = `https://api.themoviedb.org/3/${mediaType}/${mediaId}/videos?api_key=${tmdbApiKey}&language=en-US`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const trailer = data.results.find(
+      (v) => v.site === "YouTube" && v.type === "Trailer"
+    );
+    if (trailer) return `yt_id:${trailer.key}`;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // Haalt één specifieke MDBList lijst items op en returnt { metas: [] }
 async function getMDBList(type, id, page, language, config) {
   const safeConfig = config || {};
@@ -86,13 +108,25 @@ async function getMDBList(type, id, page, language, config) {
       const metas = [];
       for (const item of itemsArray) {
         if (item.poster && item.genre) {
-          metas.push(parseMDBListItem(item, type));
+          // Voor items zonder volledige TMDb-details
+          const trailer = await getTmdbTrailer(item.id, type, tmdbApiKey);
+          const parsed = parseMDBListItem(item, type);
+          if (trailer) parsed.trailer = trailer;
+          metas.push(parsed);
           continue;
         }
         if (item.imdb_id) {
-          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
+          const tmdbDetails = await getTmdbDetailsByImdbId(
+            item.imdb_id,
+            type,
+            tmdbApiKey,
+            language
+          );
           if (tmdbDetails) {
-            metas.push(parseMedia(tmdbDetails, type));
+            const parsed = parseMedia(tmdbDetails, type);
+            const trailer = await getTmdbTrailer(tmdbDetails.id, type, tmdbApiKey);
+            if (trailer) parsed.trailer = trailer;
+            metas.push(parsed);
             continue;
           }
         }
@@ -100,7 +134,7 @@ async function getMDBList(type, id, page, language, config) {
       }
       return { metas };
     } else {
-      const metas = itemsArray.map(item => parseMDBListItem(item, type));
+      const metas = itemsArray.map((item) => parseMDBListItem(item, type));
       return { metas };
     }
   } catch (err) {
@@ -111,5 +145,5 @@ async function getMDBList(type, id, page, language, config) {
 
 module.exports = {
   getMDBLists,
-  getMDBList
+  getMDBList,
 };
