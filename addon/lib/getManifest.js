@@ -115,6 +115,10 @@ async function getMDBListItems(listId, apiKey) {
 }
 
 async function getManifest(config) {
+  console.log("🛠️ getManifest() CALLED");
+  console.log("  config:", JSON.stringify(config));
+  console.log("  userCatalogs:", JSON.stringify(config.catalogs));
+
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
@@ -132,13 +136,18 @@ async function getManifest(config) {
 
   // Voeg MDBList catalogi toe aan config.catalogs als ze nog niet bestaan
   if (config.mdblistkey) {
+    console.log("🔑 MDBList key found:", config.mdblistkey);
     const { getMDBLists } = require("./getMDBList");
     try {
       const mdblistLists = await getMDBLists(config.mdblistkey);
+      console.log(`📦 Retrieved ${mdblistLists.length} MDBList lists:`,
+                  mdblistLists.map(l => `${l.id} (“${l.name}”)`).join(", "));
 
       for (const list of mdblistLists) {
         const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
+        console.log(`   → List ${list.id} (“${list.name}”) hasMovies=${hasMovies}, hasShows=${hasShows}`);
 
+        // Voeg movie-catalog toe
         if (hasMovies && !config.catalogs.find(c => c.id === `mdblist_${list.id}_movie`)) {
           config.catalogs.push({
             id: `mdblist_${list.id}_movie`,
@@ -147,7 +156,9 @@ async function getManifest(config) {
             showInHome: false,
             enabled: false,
           });
+          console.log(`     • Added catalog mdblist_${list.id}_movie`);
         }
+        // Voeg series-catalog toe
         if (hasShows && !config.catalogs.find(c => c.id === `mdblist_${list.id}_series`)) {
           config.catalogs.push({
             id: `mdblist_${list.id}_series`,
@@ -156,30 +167,29 @@ async function getManifest(config) {
             showInHome: false,
             enabled: false,
           });
+          console.log(`     • Added catalog mdblist_${list.id}_series`);
         }
       }
     } catch (err) {
-      console.error("Failed to fetch MDBList catalogs:", err);
+      console.error("❌ Failed to fetch MDBList catalogs:", err);
     }
   }
 
   // Bouw catalogs array enkel met ingeschakelde catalogi
-  const catalogs = config.catalogs
+const catalogs = config.catalogs
     .filter(c => c.enabled)
     .map(c => {
-      // MDBList catalogi met mdblist_ prefix
+      // MDBList catalogi
       if (c.id.startsWith("mdblist_")) {
-        const parts = c.id.split('_');
-        const listId = parts[1];
-        const mediaType = parts[2];
-        const listName = c.name || "MDBList List";
+        console.log("🏷️ Building MDBList catalog entry for:", c.id);
+        const [, listId, mediaType] = c.id.split("_");
         return {
           id: c.id,
           type: mediaType,
-          name: listName,
+          name: c.name,
           pageSize: 20,
           extra: [{ name: "skip" }],
-          showInHome: c.showInHome || false
+          showInHome: c.showInHome,
         };
       }
 
@@ -190,6 +200,9 @@ async function getManifest(config) {
       return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
     })
     .filter(Boolean);
+
+  console.log(`✅ Final catalogs array (${catalogs.length}):`,
+              catalogs.map(cat => cat.id).join(", "));
 
   // TMDB search-catalogi toevoegen als ingeschakeld
   if (config.searchEnabled !== "false") {
