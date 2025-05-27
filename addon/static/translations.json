@@ -40,9 +40,26 @@
   "nl-NL": {
     "popular": "Populair",
     "year": "Jaar",
+    "movie": "Film",
+    "movies": "Films",
+    "show": "Serie",
+    "shows": "Serie",
+    "serie": "Serie",
+    "series": "Series",
+    "search": "Zoeken",
     "language": "Nederlands",
     "trending": "Trending",
+    "summary": "Samenvatting",
+    "directors": "Regiseurs",
+    "cast": "Acteurs",
+    "random": "Random",
     "favorites": "Favorieten",
+    "added_date": "Datum toegevoegd",
+    "popularity": "Populariteit",
+    "release_date": "Release datum",
+    "random": "Willekeurig",
+    "desc": "Nieuwste eerst",
+    "asc": "Oudste eerst"
     "watchlist": "Watchlijst"
   },
   "pt-BR": {
