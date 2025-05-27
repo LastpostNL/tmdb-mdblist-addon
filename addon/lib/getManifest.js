@@ -199,6 +199,9 @@ for (const c of sortedCatalogs) {
     `Active Catalogs: ${catalogs.length}`
   ].join(" | ");
 
+  // *** DEBUG: welke catalog IDs worden teruggestuurd? ***
+  console.log("🔍 Manifest catalogs:", catalogs.map(c => c.id));
+
   return {
     id: packageJson.name,
     version: packageJson.version,
