@@ -5,7 +5,6 @@ const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 const DEFAULT_LANGUAGE = "en-US";
-const fetch = require("node-fetch"); // toevoegen als je fetch nog niet hebt
 
 function generateArrayOfYears(maxYears) {
   const max = new Date().getFullYear();
