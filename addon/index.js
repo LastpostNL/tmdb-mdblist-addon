@@ -83,6 +83,31 @@ addon.get("/:catalogChoices?/manifest.json", async function (req, res) {
   respond(res, manifest, cacheOpts);
 });
 
+// --- MDBList: Proxy endpoint om items van een specifieke lijst op te halen ---
+addon.get("/lists/:listId/items", async (req, res) => {
+  const { listId } = req.params;
+  const { apikey } = req.query;
+
+  if (!apikey) {
+    return res.status(400).json({ error: "API key missing" });
+  }
+
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${apikey}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ error: `MDBList API error: ${text}` });
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Error proxying MDBList list items:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // --- MDBList: Endpoint om persoonlijke lijsten van gebruiker op te halen (voor configuratie UI) ---
 addon.get("/mdblist/lists/user", async (req, res) => {
   const userToken = req.query.apikey;
