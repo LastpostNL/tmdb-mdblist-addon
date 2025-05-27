@@ -110,7 +110,7 @@ async function getManifest(config) {
           ...c,
           id: listId,       // Gebruik puur lijst-ID als catalog id
           type,
-          name: `MDBList - ${listInfoById[listId] || listId}`
+          name: `${listInfoById[listId] || listId}`
         };
       }
       return c;
