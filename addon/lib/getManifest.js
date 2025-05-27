@@ -160,41 +160,44 @@ async function getManifest(config) {
     });
   }
 
-  // MDBList catalogi toevoegen
-  if (config.mdblistUserToken) {
-    const { getMDBLists } = require("./getMDBList");
-    try {
-      const mdblistLists = await getMDBLists(config.mdblistUserToken);
-      for (const list of mdblistLists) {
-        const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistUserToken);
-        
-        // Voeg movie catalogus toe als er movies zijn
-        if (hasMovies) {
-          catalogs.push({
-            id: `mdblist_${list.id}_movie`,
-            type: "movie",
-            name: `MDBList - ${list.name} (Movies)`,
-            pageSize: 20,
-            extra: [{ name: "skip" }],
-            showInHome: false
-          });
-        }
-        // Voeg series catalogus toe als er shows zijn
-        if (hasShows) {
-          catalogs.push({
-            id: `mdblist_${list.id}_series`,
-            type: "series",
-            name: `MDBList - ${list.name} (Series)`,
-            pageSize: 20,
-            extra: [{ name: "skip" }],
-            showInHome: false
-          });
-        }
+// MDBList catalogi toevoegen
+if (config.mdblistUserToken) {
+  const { getMDBLists } = require("./getMDBList");
+  try {
+    const mdblistLists = await getMDBLists(config.mdblistUserToken);
+
+    for (const list of mdblistLists) {
+      const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistUserToken);
+
+      // Voeg movie catalogus toe als er movies zijn
+      if (hasMovies) {
+        catalogs.push({
+          id: `mdblist_${list.id}_movie`,
+          type: "movie",
+          name: `MDBList - ${list.name} (Movies)`,
+          pageSize: 20,
+          extra: [{ name: "skip" }],
+          showInHome: false
+        });
       }
-    } catch (err) {
-      console.error("Failed to fetch MDBList catalogs:", err);
+
+      // Voeg series catalogus toe als er shows zijn
+      if (hasShows) {
+        catalogs.push({
+          id: `mdblist_${list.id}_series`,
+          type: "series",
+          name: `MDBList - ${list.name} (Series)`,
+          pageSize: 20,
+          extra: [{ name: "skip" }],
+          showInHome: false
+        });
+      }
     }
+  } catch (err) {
+    console.error("Failed to fetch MDBList catalogs:", err);
   }
+}
+
 
   // Metadata beschrijving
   const activeConfigs = [
