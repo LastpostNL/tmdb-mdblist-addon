@@ -160,13 +160,13 @@ async function getManifest(config) {
   }
 
 // MDBList catalogi toevoegen
-if (config.mdblistUserToken) {
+if (config.mdblistkey) {
   const { getMDBLists } = require("./getMDBList");
   try {
-    const mdblistLists = await getMDBLists(config.mdblistUserToken);
+    const mdblistLists = await getMDBLists(config.mdblistkey);
 
     for (const list of mdblistLists) {
-      const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistUserToken);
+      const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
 
       // Voeg movie catalogus toe als er movies zijn
       if (hasMovies) {
