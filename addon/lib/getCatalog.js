@@ -20,7 +20,9 @@ async function getCatalog(type, language, page, id, genre, config) {
   const genreList = await getGenreList(language, type);
   const parameters = await buildParameters(type, language, page, id, genre, genreList, config);
 
-  const fetchFunction = type === "movie" ? moviedb.discoverMovie.bind(moviedb) : moviedb.discoverTv.bind(moviedb);
+  const fetchFunction = type === "movie"
+    ? moviedb.discoverMovie.bind(moviedb)
+    : moviedb.discoverTv.bind(moviedb);
 
   return fetchFunction(parameters)
     .then((res) => ({
@@ -34,7 +36,11 @@ async function getCatalog(type, language, page, id, genre, config) {
 
 async function buildParameters(type, language, page, id, genre, genreList, config) {
   const languages = await getLanguages();
-  const parameters = { language, page, 'vote_count.gte': 10 };
+  const parameters = {
+    language,
+    page,
+    'vote_count.gte': 10
+  };
 
   if (config.ageRating) {
     switch (config.ageRating) {
@@ -55,7 +61,7 @@ async function buildParameters(type, language, page, id, genre, genreList, confi
         parameters.certification = type === "movie" ? "G|PG|PG-13|R" : "TV-G|TV-PG|TV-14|TV-MA";
         break;
       case "NC-17":
-        // Geen filter?
+        // Geen filter
         break;
     }
   }
@@ -89,6 +95,7 @@ async function buildParameters(type, language, page, id, genre, genreList, confi
         break;
     }
   }
+
   return parameters;
 }
 
@@ -98,7 +105,7 @@ function findGenreId(genreName, genreList) {
 }
 
 function findLanguageCode(genre, languages) {
-  const language = languages.find((lang) => lang.name === genre);
+  const language = languages.find(lang => lang.name === genre);
   return language ? language.iso_639_1 : "";
 }
 
