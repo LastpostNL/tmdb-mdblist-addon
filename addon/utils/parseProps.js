@@ -19,37 +19,46 @@ function parseCast(credits) {
 function parseDirector(credits) {
   return credits.crew
     .filter((x) => x.job === "Director")
-    .map((el) => el.name);
+    .map((el) => {
+      return el.name;
+    });
 }
 
 function parseWriter(credits) {
   return credits.crew
     .filter((x) => x.job === "Writer")
-    .map((el) => el.name);
+    .map((el) => {
+      return el.name;
+    });
 }
 
 function parseSlug(type, title, imdb_id) {
-  return `${type}/${title.toLowerCase().replace(/ /g, "-")}-${imdb_id ? imdb_id.replace("tt", "") : ""}`;
+  return `${type}/${title.toLowerCase().replace(/ /g, "-")}-${imdb_id ? imdb_id.replace("tt", "") : ""
+    }`;
 }
 
 function parseTrailers(videos) {
   return videos.results
     .filter((el) => el.site === "YouTube")
     .filter((el) => el.type === "Trailer")
-    .map((el) => ({
-      source: `${el.key}`,
-      type: `${el.type}`,
-    }));
+    .map((el) => {
+      return {
+        source: `${el.key}`,
+        type: `${el.type}`,
+      };
+    });
 }
 
 function parseTrailerStream(videos) {
   return videos.results
     .filter((el) => el.site === "YouTube")
     .filter((el) => el.type === "Trailer")
-    .map((el) => ({
-      title: `${el.name}`,
-      ytId: `${el.key}`,
-    }));
+    .map((el) => {
+      return {
+        title: `${el.name}`,
+        ytId: `${el.key}`,
+      };
+    });
 }
 
 function parseImdbLink(vote_average, imdb_id) {
@@ -84,22 +93,28 @@ function parseGenreLink(genres, type, language) {
 
 function parseCreditsLink(credits) {
   const castData = parseCast(credits);
-  const Cast = castData.map((actor) => ({
-    name: actor.name,
-    category: "Cast",
-    url: `stremio:///search?search=${encodeURIComponent(actor.name)}`
-  }));
-  const Director = parseDirector(credits).map((director) => ({
-    name: director,
-    category: "Directors",
-    url: `stremio:///search?search=${encodeURIComponent(director)}`,
-  }));
-  const Writer = parseWriter(credits).map((writer) => ({
-    name: writer,
-    category: "Writers",
-    url: `stremio:///search?search=${encodeURIComponent(writer)}`,
-  }));
-  return [...Cast, ...Director, ...Writer];
+  const Cast = castData.map((actor) => {
+    return {
+      name: actor.name,
+      category: "Cast",
+      url: `stremio:///search?search=${encodeURIComponent(actor.name)}`
+    };
+  });
+  const Director = parseDirector(credits).map((director) => {
+    return {
+      name: director,
+      category: "Directors",
+      url: `stremio:///search?search=${encodeURIComponent(director)}`,
+    };
+  });
+  const Writer = parseWriter(credits).map((writer) => {
+    return {
+      name: writer,
+      category: "Writers",
+      url: `stremio:///search?search=${encodeURIComponent(writer)}`,
+    };
+  });
+  return new Array(...Cast, ...Director, ...Writer);
 }
 
 function parseCoutry(production_countries) {
@@ -107,7 +122,9 @@ function parseCoutry(production_countries) {
 }
 
 function parseGenres(genres) {
-  return genres.map((el) => el.name);
+  return genres.map((el) => {
+    return el.name;
+  });
 }
 
 function parseYear(status, first_air_date, last_air_date) {
@@ -140,7 +157,7 @@ function parseCreatedBy(created_by) {
 }
 
 function parseConfig(catalogChoices) {
-  let config = {};
+  let config = {}
   try {
     config = JSON.parse(catalogChoices);
   } catch (e) {
@@ -152,21 +169,20 @@ function parseConfig(catalogChoices) {
 }
 
 async function parsePoster(type, id, poster, language, rpdbkey) {
-  const tmdbImage = `https://image.tmdb.org/t/p/w500${poster}`;
+  const tmdbImage = `https://image.tmdb.org/t/p/w500${poster}`
   if (rpdbkey) {
-    const rpdbImage = getRpdbPoster(type, id, language, rpdbkey);
+    const rpdbImage = getRpdbPoster(type, id, language, rpdbkey)
     return await checkIfExists(rpdbImage) ? rpdbImage : tmdbImage;
   }
   return tmdbImage;
 }
 
-// parseMedia met optionele trailer-parameter
-function parseMedia(el, type, genreList = [], trailer = null) {
+function parseMedia(el, type, genreList = []) {
   const genres = Array.isArray(el.genre_ids) 
     ? el.genre_ids.map(genre => genreList.find((x) => x.id === genre)?.name || 'Unknown')
     : [];
 
-  const meta = {
+  return {
     id: `tmdb:${el.id}`,
     name: type === 'movie' ? el.title : el.name,
     genre: genres,
@@ -178,17 +194,11 @@ function parseMedia(el, type, genreList = [], trailer = null) {
     type: type === 'movie' ? type : 'series',
     description: el.overview,
   };
-
-  if (trailer) {
-    meta.trailer = trailer;  // bv. "yt_id:<youtube_id>"
-  }
-
-  return meta;
 }
 
-// Nieuwe functie om MDBList-items te parsen naar Stremio metas, met optionele trailer
-function parseMDBListItem(item, type, trailer = null) {
-  const meta = {
+// Nieuwe functie om MDBList-items te parsen naar Stremio metas
+function parseMDBListItem(item, type) {
+  return {
     id: `tmdb:${item.id}`,
     type,
     name: item.title,
@@ -200,21 +210,15 @@ function parseMDBListItem(item, type, trailer = null) {
     description: item.description || "",
     genre: item.genres ? item.genres.map(g => g.name) : [],
   };
-
-  if (trailer) {
-    meta.trailer = trailer;  // bv. "yt_id:<youtube_id>"
-  }
-
-  return meta;
 }
 
 function getRpdbPoster(type, id, language, rpdbkey) {
-  const tier = rpdbkey.split("-")[0];
-  const lang = language.split("-")[0];
+  const tier = rpdbkey.split("-")[0]
+  const lang = language.split("-")[0]
   if (tier === "t0" || tier === "t1" || lang === "en") {
-    return `https://api.ratingposterdb.com/${rpdbkey}/tmdb/poster-default/${type}-${id}.jpg?fallback=true`;
+    return `https://api.ratingposterdb.com/${rpdbkey}/tmdb/poster-default/${type}-${id}.jpg?fallback=true`
   } else {
-    return `https://api.ratingposterdb.com/${rpdbkey}/tmdb/poster-default/${type}-${id}.jpg?fallback=true&lang=${lang}`;
+    return `https://api.ratingposterdb.com/${rpdbkey}/tmdb/poster-default/${type}-${id}.jpg?fallback=true&lang=${lang}`
   }
 }
 
@@ -253,11 +257,11 @@ async function checkIfExists(rpdbImage) {
   return new Promise((resolve) => {
     urlExists(rpdbImage, (err, exists) => {
       if (exists) {
-        resolve(true);
+        resolve(true)
       } else {
         resolve(false);
       }
-    });
+    })
   });
 }
 
