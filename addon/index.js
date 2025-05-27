@@ -1,27 +1,30 @@
+// addon/index.js
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const favicon = require('serve-favicon');
 const path = require("path");
-const addon = express();
 
-// ✅ CORS activeren vóór routes
-addon.use(cors());
-
-const analytics = require('./utils/analytics');
-const { getCatalog } = require("./lib/getCatalog");
-const { getSearch } = require("./lib/getSearch");
+const analytics            = require('./utils/analytics');
+const { getCatalog }       = require("./lib/getCatalog");
+const { getSearch }        = require("./lib/getSearch");
 const { getManifest, DEFAULT_LANGUAGE } = require("./lib/getManifest");
-const { getMeta } = require("./lib/getMeta");
-const { getTmdb } = require("./lib/getTmdb");
-const { cacheWrapMeta } = require("./lib/getCache");
-const { getTrending } = require("./lib/getTrending");
+const { getMeta }          = require("./lib/getMeta");
+const { getTmdb }          = require("./lib/getTmdb");
+const { cacheWrapMeta }    = require("./lib/getCache");
+const { getTrending }      = require("./lib/getTrending");
 const { parseConfig, getRpdbPoster, checkIfExists } = require("./utils/parseProps");
 const { getRequestToken, getSessionId } = require("./lib/getSession");
-const { getFavorites, getWatchList } = require("./lib/getPersonalLists");
-const { blurImage } = require('./utils/imageProcessor');
+const { getFavorites, getWatchList }    = require("./lib/getPersonalLists");
+const { blurImage }         = require('./utils/imageProcessor');
 const { getMDBLists, getMDBList } = require("./lib/getMDBList");
 
-// Middleware
+const addon = express();
+
+// ✅ CORS vóór alle routes
+addon.use(cors());
+
+// Favicon, analytics & statics
 addon.use(analytics.middleware);
 addon.use(favicon(path.join(__dirname, '../public/favicon.png')));
 addon.use(express.static(path.join(__dirname, '../public')));
