@@ -26,7 +26,7 @@ function setOrderLanguage(language, languagesArray) {
 function loadTranslations(language) {
   return {
     ...catalogsTranslations[DEFAULT_LANGUAGE],
-    ...catalogsTranslations[language] || {}
+    ...(catalogsTranslations[language] || {})
   };
 }
 
@@ -93,13 +93,15 @@ async function getManifest(config) {
   const sessionId = config.sessionId;
 
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
+    // Map mdblist catalog entries to use pure list IDs as catalog ids, no prefix/suffix
     const listInfoById = Object.fromEntries(config.mdblistLists.map(l => [String(l.id), l.name]));
     config.catalogs = config.catalogs.map(c => {
       if (c.id.startsWith("mdblist.")) {
+        // Old format: mdblist.<type>.<listId> => replace by listId only
         const [, type, listId] = c.id.split(".");
         return {
           ...c,
-          id: `mdblist_${listId}_${type}`,
+          id: listId,       // Gebruik puur lijst-ID als catalog id
           type,
           name: `MDBList - ${listInfoById[listId] || listId}`
         };
@@ -122,18 +124,19 @@ async function getManifest(config) {
       const mdblistLists = await getMDBLists(config.mdblistkey);
       for (const list of mdblistLists) {
         const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
-        if (hasMovies && !config.catalogs.find(c => c.id === `mdblist_${list.id}_movie`)) {
+        // Voeg lijst toe als movie en/of series catalogus als deze nog niet bestaat
+        if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
           config.catalogs.push({
-            id: `mdblist_${list.id}_movie`,
+            id: String(list.id),
             type: "movie",
             name: `MDBList - ${list.name} (Movies)`,
             showInHome: false,
             enabled: false
           });
         }
-        if (hasShows && !config.catalogs.find(c => c.id === `mdblist_${list.id}_series`)) {
+        if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
           config.catalogs.push({
-            id: `mdblist_${list.id}_series`,
+            id: String(list.id),
             type: "series",
             name: `MDBList - ${list.name} (Series)`,
             showInHome: false,
@@ -149,17 +152,20 @@ async function getManifest(config) {
   const catalogs = config.catalogs
     .filter(c => c.enabled !== false)
     .map(c => {
-      if (c.id.startsWith("mdblist_")) {
-        const [, listId, mediaType] = c.id.split("_");
+      // Check of c.id overeenkomt met een MDBList-lijst-ID (als string) en dat mdblistLists aanwezig is
+      if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
+        // MDBList catalogus: id is lijst-ID puur, type en name komen uit config
         return {
           id: c.id,
-          type: mediaType,
+          type: c.type,
           name: c.name,
           pageSize: 20,
           extra: [{ name: "skip" }],
           showInHome: c.showInHome
         };
       }
+
+      // TMDB-catalogus
       const def = getCatalogDefinition(c.id);
       if (!def) return null;
       const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
