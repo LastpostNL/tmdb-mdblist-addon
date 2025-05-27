@@ -53,13 +53,19 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // ✅ Verwacht nu dat `id` direct het lijstnummer is, zoals '97574'
-  if (!/^\d+$/.test(id)) {
-    console.error("[MDBList] Ongeldig lijst-ID (verwacht getal):", id);
+  // Verwacht id in vorm 'mdblist_<listId>_<type>', bijvoorbeeld: mdblist_97574_movie
+  const parts = id.split('_');
+  let listId = parts[1];
+  let inferredType = parts[2] || type; // fallback op meegegeven type als het niet in id zit
+
+  // Validatie: listId moet een getal zijn
+  if (!/^\d+$/.test(listId)) {
+    console.warn("[MDBList] Ongeldig lijst-ID (verwacht getal):", listId);
     return { metas: [] };
   }
 
-  const url = `https://api.mdblist.com/lists/${id}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
+  // Bouw URL
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
   try {
@@ -71,28 +77,31 @@ async function getMDBList(type, id, page, language, config) {
     }
 
     const data = await response.json();
-    const itemsArray = type === "movie" ? data.movies : data.shows;
+    const itemsArray = inferredType === "movie" ? data.movies : data.shows;
 
     if (!itemsArray || itemsArray.length === 0) {
       return { metas: [] };
     }
 
-    // Gebruik direct de poster & genres uit MDBList indien aanwezig, fallback naar TMDb alleen als TMDb API key aanwezig is
     if (tmdbApiKey) {
       const metas = [];
       for (const item of itemsArray) {
         if (item.poster && item.genre) {
-          metas.push(parseMDBListItem(item, type));
-        } else if (item.imdb_id) {
-          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, type, tmdbApiKey, language);
-          metas.push(tmdbDetails ? parseMedia(tmdbDetails, type) : parseMDBListItem(item, type));
-        } else {
-          metas.push(parseMDBListItem(item, type));
+          metas.push(parseMDBListItem(item, inferredType));
+          continue;
         }
+        if (item.imdb_id) {
+          const tmdbDetails = await getTmdbDetailsByImdbId(item.imdb_id, inferredType, tmdbApiKey, language);
+          if (tmdbDetails) {
+            metas.push(parseMedia(tmdbDetails, inferredType));
+            continue;
+          }
+        }
+        metas.push(parseMDBListItem(item, inferredType));
       }
       return { metas };
     } else {
-      const metas = itemsArray.map(item => parseMDBListItem(item, type));
+      const metas = itemsArray.map(item => parseMDBListItem(item, inferredType));
       return { metas };
     }
   } catch (err) {
