@@ -34,10 +34,10 @@ export default function MDBList() {
     setLoadingLists(true);
     try {
       const res = await fetch(`/mdblist/lists/user?apikey=${key}`);
-      if (!res.ok) throw new Error("Lijsten ophalen mislukt");
+      if (!res.ok) throw new Error("Getting the MDBList content failed.");
 
       const data = await res.json();
-      if (!Array.isArray(data)) throw new Error("Ongeldig antwoord van de server");
+      if (!Array.isArray(data)) throw new Error("Invalid response from the server.");
 
       setLists(data);
       setMdblistLists(data);
@@ -102,15 +102,15 @@ export default function MDBList() {
       {isValid ? (
         <>
           <Alert>
-            <AlertDescription>✅ Je bent ingelogd bij MDBList</AlertDescription>
+            <AlertDescription>✅ You are logged in to MDBList</AlertDescription>
           </Alert>
 
           <div>
-            <Label className="mb-2 font-semibold">Selecteer je lijsten:</Label>
+            <Label className="mb-2 font-semibold">Select your lists:</Label>
             {loadingLists ? (
-              <div>Lijsten laden...</div>
+              <div>Loading personal lists...</div>
             ) : lists.length === 0 ? (
-              <div>Geen lijsten gevonden.</div>
+              <div>No lists have been found.</div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-auto border rounded p-2">
                 {lists.map((list) => (
@@ -135,7 +135,7 @@ export default function MDBList() {
 
           <DialogClose asChild>
             <Button variant="destructive" onClick={handleLogout} className="mt-4">
-              Uitloggen
+              Logout
             </Button>
           </DialogClose>
         </>
@@ -144,11 +144,11 @@ export default function MDBList() {
           <Label htmlFor="mdblistToken">MDBList API Token</Label>
           <Input
             id="mdblistToken"
-            placeholder="Voer je API token in"
+            placeholder="Enter your API token"
             value={inputToken}
             onChange={(e) => setInputToken(e.target.value)}
           />
-          <Button onClick={handleSaveToken}>Inloggen</Button>
+          <Button onClick={handleSaveToken}>Login</Button>
         </div>
       )}
     </div>
