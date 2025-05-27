@@ -69,11 +69,17 @@ function parseShareLink(title, imdb_id, type) {
 }
 
 function parseGenreLink(genres, type, language) {
-  return genres.map((genre) => ({
-    name: genre.name,
-    category: "Genres",
-    url: `stremio:///discover/${encodeURIComponent(process.env.HOST_NAME)}%2F${language}%2Fmanifest.json/${type}/tmdb.top?genre=${encodeURIComponent(genre.name)}`,
-  }));
+  return genres.map((genre) => {
+    return {
+      name: genre.name,
+      category: "Genres",
+      url: `stremio:///discover/${encodeURIComponent(
+        process.env.HOST_NAME
+      )}%2F${language}%2Fmanifest.json/${type}/tmdb.top?genre=${encodeURIComponent(
+        genre.name
+      )}`,
+    };
+  });
 }
 
 function parseCreditsLink(credits) {
