@@ -36,7 +36,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
     const formatted = (catalogDef.defaultOptions || options).map(opt => {
       if (opt.includes(".")) {
         const [field, order] = opt.split(".");
-        return ${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order});
+return `${translatedCatalogs[field] || field} (${translatedCatalogs[order] || order})`;
       }
       return translatedCatalogs[opt] || opt;
     });
@@ -48,7 +48,7 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
   return {
     id,
     type,
-    name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]},
+name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]}`,
     pageSize: 20,
     extra
   };
@@ -79,8 +79,9 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
 
 async function getMDBListItems(listId, apiKey) {
   try {
-    const res = await fetch(https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey});
-    if (!res.ok) throw new Error(Failed to fetch list items for ${listId}: ${res.statusText});
+const res = await fetch(`https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`);
+if (!res.ok) throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
+
     const data = await res.json();
     return {
       hasMovies: Array.isArray(data.movies) && data.movies.length > 0,
@@ -189,21 +190,21 @@ for (const c of sortedCatalogs) {
       catalogs.push({
         id: "tmdb.search",
         type,
-        name: ${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search},
+name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs.search}`,
         pageSize: 20,
         extra: [{ name: "search", isRequired: true }]
       });
     });
   }
 
-  const activeConfigs = [
-    Language: ${language},
-    TMDB Account: ${sessionId ? "Connected" : "Not Connected"},
-    IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"},
-    RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"},
-    Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"},
-    Active Catalogs: ${catalogs.length}
-  ].join(" | ");
+const activeConfigs = [
+  `Language: ${language}`,
+  `TMDB Account: ${sessionId ? "Connected" : "Not Connected"}`,
+  `IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"}`,
+  `RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"}`,
+  `Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"}`,
+  `Active Catalogs: ${catalogs.length}`
+].join(" | ");
 
   // *** DEBUG: welke catalog IDs worden teruggestuurd? ***
   console.log("🔍 Manifest catalogs:", catalogs.map(c => c.id));
@@ -211,11 +212,11 @@ for (const c of sortedCatalogs) {
   return {
     id: packageJson.name,
     version: packageJson.version,
-    favicon: ${process.env.HOST_NAME}/favicon.png,
-    logo: ${process.env.HOST_NAME}/logo.png,
-    background: ${process.env.HOST_NAME}/background.png,
+favicon: `${process.env.HOST_NAME}/favicon.png`,
+logo: `${process.env.HOST_NAME}/logo.png`,
+background: `${process.env.HOST_NAME}/background.png`,
+description: `Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs}`,
     name: "The Movie Database",
-    description: Stremio addon that provides rich metadata for movies and TV shows from TMDB… Current settings: ${activeConfigs},
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
