@@ -98,6 +98,7 @@ async function getManifest(config) {
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
+  const catalogs = []; 
 
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     // Map mdblist catalog entries to use pure list IDs as catalog ids, no prefix/suffix
