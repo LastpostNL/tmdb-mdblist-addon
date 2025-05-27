@@ -21,7 +21,7 @@ const { getMDBLists, getMDBList } = require("./lib/getMDBList");
 
 const addon = express();
 
-// ✅ CORS vóór alle routes
+// CORS vóór alle routes
 addon.use(cors());
 
 // Favicon, analytics & statics
@@ -242,8 +242,4 @@ addon.get("/:catalogChoices?/meta/:type/:id.json", async function (req, res) {
   }
 });
 
-// Start server op poort 1337
-const PORT = process.env.PORT || 1337;
-addon.listen(PORT, () => {
-  console.log(`Addon listening on port ${PORT}`);
-});
+module.exports = addon;
