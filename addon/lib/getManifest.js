@@ -10,41 +10,28 @@ const DEFAULT_LANGUAGE = "en-US";
 
 function generateArrayOfYears(maxYears) {
   const currentYear = new Date().getFullYear();
-  console.log(`[generateArrayOfYears] Generating years array for last ${maxYears} years, current year: ${currentYear}`);
   return Array.from({ length: maxYears + 1 }, (_, i) => (currentYear - i).toString());
 }
 
 function setOrderLanguage(language, languagesArray) {
-  console.log(`[setOrderLanguage] Setting order for language: ${language}`);
-  const languageObj = languagesArray.find(l => l.iso_639_1 === language);
-  if (!languageObj) {
-    console.log(`[setOrderLanguage] Language '${language}' not found in languagesArray, returning all names unsorted.`);
+  const languageObjIndex = languagesArray.findIndex(l => l.iso_639_1 === language);
+  if (languageObjIndex === -1) {
     return languagesArray.map(el => el.name);
   }
-  // Verwijder gevonden element uit de array
-  const fromIndex = languagesArray.indexOf(languageObj);
-  if (fromIndex > -1) languagesArray.splice(fromIndex, 1);
-  // Sorteer alfabetisch
+  const languageObj = languagesArray.splice(languageObjIndex, 1)[0];
   languagesArray.sort((a, b) => a.name.localeCompare(b.name));
-  // Voeg het gevonden element als eerste toe
   languagesArray.unshift(languageObj);
-  const result = [...new Set(languagesArray.map(el => el.name))];
-  console.log(`[setOrderLanguage] Ordered languages array:`, result);
-  return result;
+  return [...new Set(languagesArray.map(el => el.name))];
 }
 
 function loadTranslations(language) {
-  console.log(`[loadTranslations] Loading translations for language: ${language}`);
-  const translations = {
+  return {
     ...catalogsTranslations[DEFAULT_LANGUAGE],
     ...(catalogsTranslations[language] || {})
   };
-  console.log(`[loadTranslations] Loaded translations keys:`, Object.keys(translations));
-  return translations;
 }
 
 function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCatalogs, showInHome = false) {
-  console.log(`[createCatalog] Creating catalog: id=${id}, type=${type}, nameKey=${catalogDef.nameKey}, showInHome=${showInHome}`);
   const extra = [];
 
   if (catalogDef.extraSupported.includes("genre")) {
@@ -59,9 +46,9 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
         }
         return translatedCatalogs[option] || option;
       });
-      extra.push({ name: "genre", options: formattedOptions, isRequired: showInHome ? false : true });
+      extra.push({ name: "genre", options: formattedOptions, isRequired: !showInHome });
     } else {
-      extra.push({ name: "genre", options, isRequired: showInHome ? false : true });
+      extra.push({ name: "genre", options, isRequired: !showInHome });
     }
   }
   if (catalogDef.extraSupported.includes("search")) {
@@ -71,31 +58,27 @@ function createCatalog(id, type, catalogDef, options, tmdbPrefix, translatedCata
     extra.push({ name: "skip" });
   }
 
-  const catalog = {
+  return {
     id,
     type,
     name: `${tmdbPrefix ? "TMDB - " : ""}${translatedCatalogs[catalogDef.nameKey]}`,
     pageSize: 20,
-    extra
+    extra,
+    showInHome
   };
-  console.log(`[createCatalog] Created catalog:`, catalog);
-  return catalog;
 }
 
 function getCatalogDefinition(catalogId) {
-  console.log(`[getCatalogDefinition] Getting catalog definition for id: ${catalogId}`);
-  const [, type] = catalogId.split(".");
+  const parts = catalogId.split(".");
+  const type = parts.length > 1 ? parts[1] : null;
   const def = Object.values(CATALOG_TYPES)
     .flatMap(t => Object.values(t))
-    .find(def => def.nameKey === type) || null;
-  console.log(`[getCatalogDefinition] Found definition:`, def);
-  return def;
+    .find(def => def.nameKey === type);
+  return def || null;
 }
 
 function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movie, genres_series, filterLanguages }) {
-  console.log(`[getOptionsForCatalog] Getting options for catalog: ${catalogDef.nameKey}, type: ${type}, showInHome: ${showInHome}`);
   if (catalogDef.defaultOptions) {
-    console.log(`[getOptionsForCatalog] Using defaultOptions from catalogDef`);
     return catalogDef.defaultOptions;
   }
 
@@ -104,69 +87,58 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
 
   switch (catalogDef.nameKey) {
     case 'year':
-      console.log(`[getOptionsForCatalog] Returning years options`);
       return years;
     case 'language':
-      console.log(`[getOptionsForCatalog] Returning language options`);
       return filterLanguages;
     case 'popular':
-      console.log(`[getOptionsForCatalog] Returning popular genre options`);
       return type === 'movie' ? movieGenres : seriesGenres;
     default:
-      console.log(`[getOptionsForCatalog] Returning default genre options`);
       return type === 'movie' ? movieGenres : seriesGenres;
   }
 }
 
 async function getMDBListItems(listId, apiKey) {
-  console.log(`[getMDBListItems] Fetching list items for listId=${listId} with apiKey=${apiKey ? '***' : 'MISSING'}`);
   try {
     const res = await fetch(`https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`);
     if (!res.ok) {
-      console.error(`[getMDBListItems] Failed to fetch list items for ${listId}: HTTP ${res.status} - ${res.statusText}`);
       throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
     }
     const data = await res.json();
-    console.log(`[getMDBListItems] Retrieved data for list ${listId}: movies=${data.movies?.length || 0}, shows=${data.shows?.length || 0}`);
     return {
       hasMovies: Array.isArray(data.movies) && data.movies.length > 0,
       hasShows: Array.isArray(data.shows) && data.shows.length > 0
     };
-  } catch (err) {
-    console.error(`[getMDBListItems] Error fetching list items for ${listId}:`, err);
+  } catch {
     return { hasMovies: false, hasShows: false };
   }
 }
 
 async function getManifest(config) {
-  console.log(`[getManifest] Starting manifest generation with config:`, config);
-
   config.catalogs = (config.catalogs || getDefaultCatalogs()).map(c => ({ ...c, enabled: c.enabled !== false }));
-  console.log(`[getManifest] Normalized catalogs:`, config.catalogs);
 
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
 
-  // Normaliseer MDBList catalogs: vervang oude "mdblist." prefix door puur lijst-ID als string
+  // Normalize MDBList catalogs: mdblist.<type>.<listId> => listId string only
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     const listInfoById = Object.fromEntries(config.mdblistLists.map(l => [String(l.id), l.name]));
-    console.log(`[getManifest] Normalizing MDBList catalogs with list info:`, listInfoById);
     config.catalogs = config.catalogs.map(c => {
       if (c.id.startsWith("mdblist.")) {
-        const [, type, listId] = c.id.split(".");
-        console.log(`[getManifest] Normalizing catalog id ${c.id} to listId=${listId} and type=${type}`);
-        return {
-          ...c,
-          id: listId,
-          type,
-          name: `MDBList - ${listInfoById[listId] || listId}`
-        };
+        const parts = c.id.split(".");
+        if (parts.length === 3) {
+          const [, type, listId] = parts;
+          return {
+            ...c,
+            id: String(listId),
+            type,
+            name: `MDBList - ${listInfoById[listId] || listId}`
+          };
+        }
       }
       return c;
     });
-    console.log(`[getManifest] MDBList catalogs normalized:`, config.catalogs.filter(c => c.id && !c.id.startsWith('tmdb.')));
   }
 
   const translatedCatalogs = loadTranslations(language);
@@ -177,70 +149,54 @@ async function getManifest(config) {
   const filterLanguages = setOrderLanguage(language, languagesArray);
 
   const options = { years, genres_movie, genres_series, filterLanguages };
-  console.log(`[getManifest] Options prepared for catalogs.`);
 
   if (config.mdblistkey) {
-    console.log(`[getManifest] Fetching MDBList lists using mdblistkey.`);
     try {
       const mdblistLists = await getMDBLists(config.mdblistkey);
-      console.log(`[getManifest] Fetched MDBList lists:`, mdblistLists);
       for (const list of mdblistLists) {
-        console.log(`[getManifest] Processing MDBList ${list.name} (${list.id})`);
         const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
-        console.log(`[getManifest] List hasMovies=${hasMovies}, hasShows=${hasShows}`);
 
-        // Voeg lijsten toe als movie en/of series catalogus indien nog niet toegevoegd
-if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
-  const catalogMovie = {
-    id: String(list.id),
-    type: "movie",
-    name: `MDBList - ${list.name} (Movies)`,
-    showInHome: false,
-    enabled: false
-  };
-  config.catalogs.push(catalogMovie);
-  console.log(`[getManifest] Added MDBList movie catalog: id=${catalogMovie.id}, type=${catalogMovie.type}, showInHome=${catalogMovie.showInHome}`);
-}
-if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
-  const catalogSeries = {
-    id: String(list.id),
-    type: "series",
-    name: `MDBList - ${list.name} (Series)`,
-    showInHome: false,
-    enabled: false
-  };
-  config.catalogs.push(catalogSeries);
-  console.log(`[getManifest] Added MDBList series catalog: id=${catalogSeries.id}, type=${catalogSeries.type}, showInHome=${catalogSeries.showInHome}`);
-}
+        if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
+          config.catalogs.push({
+            id: String(list.id),
+            type: "movie",
+            name: `MDBList - ${list.name} (Movies)`,
+            showInHome: false,
+            enabled: false
+          });
+        }
+        if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
+          config.catalogs.push({
+            id: String(list.id),
+            type: "series",
+            name: `MDBList - ${list.name} (Series)`,
+            showInHome: false,
+            enabled: false
+          });
+        }
+      }
     } catch (err) {
       console.error("❌ Failed to fetch MDBList catalogs:", err);
     }
-  } else {
-    console.log(`[getManifest] No mdblistkey provided, skipping MDBList catalog addition.`);
   }
 
   const catalogs = config.catalogs
     .filter(c => c.enabled !== false)
     .map(c => {
-      // Controleer of c.id een MDBList-lijst-ID is
       if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
-        console.log(`[getManifest] Creating MDBList catalog for id=${c.id}, type=${c.type}`);
         return {
           id: c.id,
           type: c.type,
           name: c.name,
           pageSize: 20,
           extra: [{ name: "skip" }],
-          showInHome: c.showInHome
+          showInHome: c.showInHome || false
         };
       }
 
-      // TMDB catalogus
       const def = getCatalogDefinition(c.id);
-      if (!def) {
-        console.warn(`[getManifest] No catalog definition found for id=${c.id}, skipping.`);
-        return null;
-      }
+      if (!def) return null;
+
       const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
       return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
     })
@@ -248,7 +204,6 @@ if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type ==
 
   if (config.searchEnabled !== "false") {
     ["movie", "series"].forEach(type => {
-      console.log(`[getManifest] Adding search catalog for type=${type}`);
       catalogs.push({
         id: "tmdb.search",
         type,
@@ -259,18 +214,7 @@ if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type ==
     });
   }
 
-  const activeConfigs = [
-    `Language: ${language}`,
-    `TMDB Account: ${sessionId ? "Connected" : "Not Connected"}`,
-    `IMDb Integration: ${provideImdbId ? "Enabled" : "Disabled"}`,
-    `RPDB Integration: ${config.rpdbkey ? "Enabled" : "Disabled"}`,
-    `Search: ${config.searchEnabled !== "false" ? "Enabled" : "Disabled"}`,
-    `Active Catalogs: ${catalogs.length}`
-  ].join(" | ");
-
-  console.log(`[getManifest] Finished manifest generation. Active configs: ${activeConfigs}`);
-
-   return {
+  return {
     id: packageJson.name,
     version: packageJson.version,
     name: translatedCatalogs.addon_name || "TMDb Addon",
