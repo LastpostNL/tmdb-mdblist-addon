@@ -136,7 +136,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "movie",
-            name: `${list.name} - Films`,
+            name: list.name.replace(/^MDBList - /i, "").trim(),
             showInHome: false,
             enabled: false
           });
@@ -145,7 +145,7 @@ async function getManifest(config) {
           config.catalogs.push({
             id: String(list.id),
             type: "series",
-            name: `${list.name} - Series`,
+            name: list.name.replace(/^MDBList - /i, "").trim(),
             showInHome: false,
             enabled: false
           });
