@@ -159,34 +159,34 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (re
 
   let metas = [];
 
-  try {
-    if (search) {
-      metas = await getSearch(type, language, search, config);
+try {
+  if (search) {
+    metas = await getSearch(type, language, search, config);
+  } else {
+    // Check of id alleen uit cijfers bestaat => MDBList lijst
+    if (/^\d+$/.test(id)) {
+      metas = await getMDBList(type, id, page, language, config);
     } else {
-      // Nieuwe check: als id puur cijfers bevat => MDBList lijst
-      if (/^\d+$/.test(id)) {
-        metas = await getMDBList(type, id, page, language, config);
-      } else {
-        switch (id) {
-          case "tmdb.trending":
-            metas = await getTrending(type, language, page, genre);
-            break;
-          case "tmdb.favorites":
-            metas = await getFavorites(type, language, page, genre, sessionId);
-            break;
-          case "tmdb.watchlist":
-            metas = await getWatchList(type, language, page, genre, sessionId);
-            break;
-          default:
-            metas = await getCatalog(type, language, page, id, genre, config);
-            break;
-        }
+      switch (id) {
+        case "tmdb.trending":
+          metas = await getTrending(type, language, page, genre);
+          break;
+        case "tmdb.favorites":
+          metas = await getFavorites(type, language, page, genre, sessionId);
+          break;
+        case "tmdb.watchlist":
+          metas = await getWatchList(type, language, page, genre, sessionId);
+          break;
+        default:
+          metas = await getCatalog(type, language, page, id, genre, config);
+          break;
       }
     }
-  } catch (e) {
-    res.status(404).send((e || {}).message || "Not found");
-    return;
   }
+} catch (e) {
+  res.status(404).send((e || {}).message || "Not found");
+  return;
+}
 
   // Optionele poster vervanging via RPDB (indien API key aanwezig)
   if (rpdbkey) {
