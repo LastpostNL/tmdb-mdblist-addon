@@ -1,27 +1,26 @@
 // addon/server.js
 require('dotenv').config();
 const path    = require('path');
-const express = require('express');
+const express = require('express'); // enkel voor static-serving
 const cors    = require('cors');
 
-// Hier laden we jouw addon/app als een ‘Router’
-const addon = require('./index.js');
+const addon   = require('./index.js'); // JOUW EXPRESS-APP
 
 const PORT = process.env.PORT || 1337;
 
-// Algemeen
+// Globale CORS (kan ook in index.js, maar hier kan het gerust dubbel staan)
 addon.use(cors());
 
-// Serveer de frontend voor /configure
+// Serve de configure-SPA
 const frontendPath = path.join(__dirname, '..', 'configure', 'dist');
 addon.use(express.static(frontendPath));
 
-// Fallback voor SPA
+// SPA fallback voor alle niet-herkende GET-routes
 addon.get('*', (req, res) => {
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// Pas nú starten we de server
+// Én Nederlandse luister-aanroep
 addon.listen(PORT, () => {
-  console.log(`🖥️  Addon listening on http://localhost:${PORT}`);
+  console.log(`Addon running on http://localhost:${PORT}`);
 });
