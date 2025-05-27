@@ -1,4 +1,3 @@
-// getManifest.js
 require("dotenv").config();
 const { getGenreList } = require("./getGenreList");
 const { getLanguages } = require("./getLanguages");
@@ -6,6 +5,7 @@ const packageJson = require("../../package.json");
 const catalogsTranslations = require("../static/translations.json");
 const CATALOG_TYPES = require("../static/catalog-types.json");
 const DEFAULT_LANGUAGE = "en-US";
+const fetch = require("node-fetch"); // toevoegen als je fetch nog niet hebt
 
 function generateArrayOfYears(maxYears) {
   const max = new Date().getFullYear();
@@ -19,6 +19,7 @@ function generateArrayOfYears(maxYears) {
 
 function setOrderLanguage(language, languagesArray) {
   const languageObj = languagesArray.find((lang) => lang.iso_639_1 === language);
+  if (!languageObj) return languagesArray.map((el) => el.name);
   const fromIndex = languagesArray.indexOf(languageObj);
   const element = languagesArray.splice(fromIndex, 1)[0];
   languagesArray = languagesArray.sort((a, b) => (a.name > b.name ? 1 : -1));
@@ -94,6 +95,26 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
   }
 }
 
+// MDBList helper om items op te halen en te checken op media types
+async function getMDBListItems(listId, apiKey) {
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
+    }
+    const data = await res.json();
+
+    const hasMovies = Array.isArray(data.movies) && data.movies.length > 0;
+    const hasShows = Array.isArray(data.shows) && data.shows.length > 0;
+
+    return { hasMovies, hasShows };
+  } catch (err) {
+    console.error(err);
+    return { hasMovies: false, hasShows: false };
+  }
+}
+
 async function getManifest(config) {
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
@@ -116,7 +137,7 @@ async function getManifest(config) {
       const def = getCatalogDefinition(uc.id);
       if (!def) return false;
       if (def.requiresAuth && !sessionId) return false;
-      return !uc.id.startsWith("mdblist."); // MDblist slaan we hier nog even over
+      return !uc.id.startsWith("mdblist."); // MDBList catalogi behandelen we straks apart
     })
     .map(uc => {
       const def = getCatalogDefinition(uc.id);
@@ -126,7 +147,7 @@ async function getManifest(config) {
       );
     });
 
-  // Voeg TMDB search-catalogi toe als geactiveerd
+  // TMDB search-catalogi toevoegen als ingeschakeld
   if (config.searchEnabled !== "false") {
     ['movie','series'].forEach(type => {
       catalogs.push({
@@ -139,41 +160,41 @@ async function getManifest(config) {
     });
   }
 
-// ─── HIER MDBList toevoegen ───────────────────────────────────────────────────
-const { getMDBLists } = require("./getMDBList");
-
-if (config.mdblistUserToken) {
-  try {
-    const mdblistCatalogs = await getMDBLists(config.mdblistUserToken);
-    mdblistCatalogs.forEach(list => {
-      const id = `mdblist_${list.id}`;   // gebruik list.id ipv list.slug
-      const name = list.name || list.slug;
-      const type = list.type === 'show' ? 'series' : 'movie';
-
-      catalogs.push({
-        id,
-        type,
-        name: `MDBList - ${name}`,
-        pageSize: 20,
-        extra: [{ name: "skip" }]
-      });
-    });
-  } catch (err) {
-    console.error("MDBList catalog fetch failed:", err.message);
+  // MDBList catalogi toevoegen
+  if (config.mdblistUserToken) {
+    const { getMDBLists } = require("./getMDBList");
+    try {
+      const mdblistLists = await getMDBLists(config.mdblistUserToken);
+      for (const list of mdblistLists) {
+        const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistUserToken);
+        
+        // Voeg movie catalogus toe als er movies zijn
+        if (hasMovies) {
+          catalogs.push({
+            id: `mdblist_${list.id}_movie`,
+            type: "movie",
+            name: `MDBList - ${list.name} (Movies)`,
+            pageSize: 20,
+            extra: [{ name: "skip" }],
+            showInHome: false
+          });
+        }
+        // Voeg series catalogus toe als er shows zijn
+        if (hasShows) {
+          catalogs.push({
+            id: `mdblist_${list.id}_series`,
+            type: "series",
+            name: `MDBList - ${list.name} (Series)`,
+            pageSize: 20,
+            extra: [{ name: "skip" }],
+            showInHome: false
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch MDBList catalogs:", err);
+    }
   }
-}
-// ──────────────────────────────────────────────────────────────────────────────
-
-catalogs.push({
-  id: "mdblist_88078", // dit is de lijst-ID met prefix
-  type: "movie", // uit de API: "mediatype": "movie"
-  name: "Populair en Nederlands", // uit de API: "name"
-  pageSize: 20,
-  extra: [{ name: "skip" }],
-  poster: "https://mdblist.com/images/lists/komt-uit-nederland.jpg", // gebaseerd op de slug
-  background: "https://mdblist.com/images/lists/komt-uit-nederland-bg.jpg", // idem
-  showInHome: true
-});
 
   // Metadata beschrijving
   const activeConfigs = [
@@ -198,7 +219,7 @@ catalogs.push({
     idPrefixes: provideImdbId ? ["tmdb:", "tt"] : ["tmdb:"],
     stremioAddonsConfig: {
       issuer: "https://stremio-addons.net",
-      signature: "" // kun je verwijderen of laten leeg
+      signature: "" // kan leeg blijven
     },
     behaviorHints: {
       configurable: true,
