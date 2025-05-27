@@ -114,16 +114,49 @@ async function getMDBListItems(listId, apiKey) {
   }
 }
 
+
+
 async function getManifest(config) {
-  console.log("🛠️ getManifest() CALLED");
-  console.log("  config:", JSON.stringify(config));
-  console.log("  userCatalogs:", JSON.stringify(config.catalogs));
+// Ensure every catalog has an 'enabled' flag (default to true)
+config.catalogs = (config.catalogs || getDefaultCatalogs()).map(c => ({
+  ...c,
+  enabled: c.enabled !== false
+}));
+
+ console.log("🛠️ getManifest() CALLED");
+ console.log("  raw config:", JSON.stringify(config));
+ console.log("  raw config.catalogs:", JSON.stringify(config.catalogs));
 
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
   const sessionId = config.sessionId;
+  // zorg dat er altijd een array is
   config.catalogs = config.catalogs || getDefaultCatalogs();
+
+  // ─── NORMALIZE frontend mdblist.* id’s naar mdblist_<id>_<type> ───
+  if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
+    // maak een lookup van id → naam uit wat de front-end heeft opgehaald
+    const listInfoById = Object.fromEntries(
+      config.mdblistLists.map(l => [ String(l.id), l.name ])
+    );
+    config.catalogs = config.catalogs.map(c => {
+      if (c.id.startsWith("mdblist.")) {
+        // frontend sends: "mdblist.movie.97574" of "mdblist.series.88082"
+        const [, type, listId] = c.id.split(".");
+        const newId = `mdblist_${listId}_${type}`;
+        return {
+          ...c,
+          id: newId,                // mdblist_97574_movie
+          type,                     // movie of series
+          name: `MDBList - ${listInfoById[listId] || listId}`,
+        };
+      }
+      return c;
+   });
+    console.log("  normalised config.catalogs:", JSON.stringify(config.catalogs));
+  }
+  // ────────────────────────────────────────────────────────────────────
   const translatedCatalogs = loadTranslations(language);
 
   // TMDB essentials
@@ -177,29 +210,25 @@ async function getManifest(config) {
 
   // Bouw catalogs array enkel met ingeschakelde catalogi
 const catalogs = config.catalogs
-    .filter(c => c.enabled)
-    .map(c => {
-      // MDBList catalogi
-      if (c.id.startsWith("mdblist_")) {
-        console.log("🏷️ Building MDBList catalog entry for:", c.id);
-        const [, listId, mediaType] = c.id.split("_");
-        return {
-          id: c.id,
-          type: mediaType,
-          name: c.name,
-          pageSize: 20,
-          extra: [{ name: "skip" }],
-          showInHome: c.showInHome,
-        };
-      }
-
-      // TMDB catalogi
-      const def = getCatalogDefinition(c.id);
-      if (!def) return null;
-      const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
-      return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
-    })
-    .filter(Boolean);
+  .filter(c => c.enabled !== false)   // keep any that aren’t explicitly disabled
+  .map(c => {
+    if (c.id.startsWith("mdblist_")) {
+      const [, listId, mediaType] = c.id.split("_");
+      return {
+        id: c.id,
+        type: mediaType,
+        name: c.name,
+        pageSize: 20,
+        extra: [{ name: "skip" }],
+        showInHome: c.showInHome,
+      };
+    }
+    const def = getCatalogDefinition(c.id);
+    if (!def) return null;
+    const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
+    return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
+  })
+  .filter(Boolean);
 
   console.log(`✅ Final catalogs array (${catalogs.length}):`,
               catalogs.map(cat => cat.id).join(", "));
