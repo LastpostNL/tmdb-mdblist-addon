@@ -177,6 +177,9 @@ try {
         case "tmdb.watchlist":
           metas = await getWatchList(type, language, page, genre, sessionId);
           break;
+      case "tmdb.popular":
+          metas = await getCatalog(type, language, page, id, genre, config);
+          break;
         default:
           metas = await getCatalog(type, language, page, id, genre, config);
           break;
