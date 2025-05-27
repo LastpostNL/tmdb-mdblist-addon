@@ -149,29 +149,34 @@ async function getManifest(config) {
     }
   }
 
-  const catalogs = config.catalogs
-    .filter(c => c.enabled !== false)
-    .map(c => {
-      // Check of c.id overeenkomt met een MDBList-lijst-ID (als string) en dat mdblistLists aanwezig is
-      if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
-        // MDBList catalogus: id is lijst-ID puur, type en name komen uit config
-        return {
-          id: c.id,
-          type: c.type,
-          name: c.name,
-          pageSize: 20,
-          extra: [{ name: "skip" }],
-          showInHome: c.showInHome
-        };
-      }
+const catalogs = [];
 
-      // TMDB-catalogus
-      const def = getCatalogDefinition(c.id);
-      if (!def) return null;
-      const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
-      return createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome);
-    })
-    .filter(Boolean);
+// Bewaar originele volgorde, maar splits eerst op movies en series
+const sortedCatalogs = [
+  ...config.catalogs.filter(c => c.type === "movie" && c.enabled !== false),
+  ...config.catalogs.filter(c => c.type === "series" && c.enabled !== false)
+];
+
+for (const c of sortedCatalogs) {
+  // MDBList-catalogus
+  if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
+    catalogs.push({
+      id: c.id,
+      type: c.type,
+      name: c.name,
+      pageSize: 20,
+      extra: [{ name: "skip" }],
+      showInHome: c.showInHome
+    });
+    continue;
+  }
+
+  // TMDB-catalogus
+  const def = getCatalogDefinition(c.id);
+  if (!def) continue;
+  const opts = getOptionsForCatalog(def, c.type, c.showInHome, options);
+  catalogs.push(createCatalog(c.id, c.type, def, opts, tmdbPrefix, translatedCatalogs, c.showInHome));
+}
 
   if (config.searchEnabled !== "false") {
     ["movie", "series"].forEach(type => {
