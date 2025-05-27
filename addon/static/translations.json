@@ -37,6 +37,14 @@
     "desc": "Newest First",
     "asc": "Oldest First"
   },
+  "nl-NL": {
+    "popular": "Populair",
+    "year": "Jaar",
+    "language": "Nederlands",
+    "trending": "Trending",
+    "favorites": "Favorieten",
+    "watchlist": "Watchlijst"
+  },
   "pt-BR": {
     "popular": "Popular",
     "year": "Ano",
