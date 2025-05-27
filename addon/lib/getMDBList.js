@@ -1,9 +1,9 @@
 const { parseMDBListItem, parseMedia } = require("../utils/parseProps");
 
 // Haalt alle lijsten op van de gebruiker (voor configpagina)
-async function getMDBLists(userToken) {
+async function getMDBLists(mdblistkey) {
   try {
-    const url = `https://api.mdblist.com/lists/user?apikey=${userToken}`;
+    const url = `https://api.mdblist.com/lists/user?apikey=${mdblistkey}`;
     console.log("[MDBList] Fetching user lists from:", url);
 
     const response = await fetch(url);
@@ -49,16 +49,16 @@ async function getTmdbDetailsByImdbId(imdbId, type, tmdbApiKey, language = "nl-N
 async function getMDBList(type, id, page, language, config) {
   const listId = id;
   const safeConfig = config || {};
-  const userToken = safeConfig.mdblistUserToken || safeConfig.mdblistkey;
+  const mdblistkey = safeConfig.mdblistkey;  // consistent tokennaam
   const tmdbApiKey = safeConfig.tmdbApiKey;
 
-  if (!userToken) {
+  if (!mdblistkey) {
     console.error("[MDBList] User token ontbreekt in config:", config);
     return { metas: [] };
   }
 
   // Append poster & genre ophalen via API
-  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${userToken}&append_to_response=genre,poster`;
+  const url = `https://api.mdblist.com/lists/${listId}/items?apikey=${mdblistkey}&append_to_response=genre,poster`;
   console.log(`[MDBList] Fetching list items from: ${url}`);
 
   try {
