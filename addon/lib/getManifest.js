@@ -170,7 +170,7 @@ for (const c of sortedCatalogs) {
     catalogs.push({
       id: c.id,
       type: c.type,
-      name: c.name,
+      name: c.name.replace(/^MDBList - /i, "").trim(), // 👈 altijd strippen
       pageSize: 20,
       extra: [{ name: "skip" }],
       showInHome: c.showInHome
