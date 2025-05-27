@@ -154,39 +154,45 @@ addon.get("/:catalogChoices?/catalog/:type/:id/:extra?.json", async function (re
     ? Object.fromEntries(new URLSearchParams(req.url.split("/").pop().split("?")[0].slice(0, -5)).entries())
     : {};
   const { genre, skip, search } = queryParams;
-
   const page = Math.ceil(skip ? skip / 20 + 1 : 1);
+
+  // **Belangrijk**: defineer hier args zodat je ze in alle cases kunt hergebruiken
+  const args = [type, language, page];
 
   let metas = [];
 
-try {
-  if (search) {
-    metas = await getSearch(type, language, search, config);
-  } else {
-    // Check of id alleen uit cijfers bestaat => MDBList lijst
-    if (/^\d+$/.test(id)) {
-      metas = await getMDBList(type, id, page, language, config);
+  try {
+    if (search) {
+      metas = await getSearch(type, language, search, config);
     } else {
       switch (id) {
-case "tmdb.trending":
+        // POPULAR heet intern 'top'
+        case "tmdb.top":
+          metas = await getCatalog(...args, id, genre, config);
+          break;
+
+        case "tmdb.trending":
           metas = await getTrending(...args, genre);
           break;
+
         case "tmdb.favorites":
           metas = await getFavorites(...args, genre, sessionId);
           break;
+
         case "tmdb.watchlist":
           metas = await getWatchList(...args, genre, sessionId);
           break;
+
         default:
           metas = await getCatalog(...args, id, genre, config);
           break;
       }
     }
+  } catch (e) {
+    res.status(404).send((e || {}).message || "Not found");
+    return;
   }
-} catch (e) {
-  res.status(404).send((e || {}).message || "Not found");
-  return;
-}
+
 
   // Optionele poster vervanging via RPDB (indien API key aanwezig)
   if (rpdbkey) {
