@@ -53,10 +53,10 @@ async function getMDBList(type, id, page, language, config) {
     return { metas: [] };
   }
 
-  // Verwacht id in vorm 'mdblist_<listId>_<type>', bijvoorbeeld: mdblist_97574_movie
+  // Verwacht id in vorm 'mdblist_<listId>_<type>', bv: mdblist_97574_movie
   const parts = id.split('_');
   let listId = parts[1];
-  let inferredType = parts[2] || type; // fallback op meegegeven type als het niet in id zit
+  let inferredType = parts[2] || type; // fallback op meegegeven type als niet in id zit
 
   // Validatie: listId moet een getal zijn
   if (!/^\d+$/.test(listId)) {
