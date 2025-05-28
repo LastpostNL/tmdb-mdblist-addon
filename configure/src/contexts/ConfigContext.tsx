@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import {
   baseCatalogs,
   authCatalogs,
@@ -65,6 +65,9 @@ const allCatalogs = [
   ...Object.values(streamingCatalogs).flat(),
 ];
 
+/**
+ * Filtert en voegt MDBList catalogi toe, vermijdt duplicaten.
+ */
 function filterAndMapMdblistCatalogs(
   currentCatalogs: CatalogConfig[],
   mdblistLists: ListItem[],
@@ -115,11 +118,119 @@ function filterAndMapMdblistCatalogs(
   return [...nonMdblistCatalogs, ...mdblistCatalogs];
 }
 
-export function ConfigProvider({ children }: { children: React.ReactNode }) {
-  const [rpdbkey, setRpdbkey] = useState("");
-  const [mdblistkey, setMdblistkey] = useState("");
-  const [mdblistSelectedLists, setMdblistSelectedLists] = useState<number[]>([]);
-  const [mdblistListsState, _setMdblistLists] = useState<ListItem[]>([]); // ✅ intern state
+/**
+ * Custom hook voor state met localStorage synchronisatie.
+ */
+function useLocalStorageState<T>(
+  key: string,
+  defaultValue: T
+): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState<T>(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (state === undefined || state === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(state));
+      }
+    } catch {
+      // localStorage error negeren
+    }
+  }, [key, state]);
+
+  return [state, setState];
+}
+
+/**
+ * Laadt config uit URL (querystring).
+ */
+function loadConfigFromUrl(
+  setRpdbkey: (key: string) => void,
+  setMdblistkey: (key: string) => void,
+  setMdblistSelectedLists: (lists: number[]) => void,
+  setIncludeAdult: (includeAdult: boolean) => void,
+  setLanguage: (language: string) => void,
+  setCatalogs: (catalogs: CatalogConfig[]) => void,
+  setStreaming: (streaming: string[]) => void,
+  setSearchEnabled: (enabled: boolean) => void,
+  loadDefaultCatalogs: () => void,
+  allCatalogs: CatalogConfig[]
+) {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const configParam = urlParams.get("config");
+
+    if (!configParam) {
+      console.warn("Geen JSON in queryparameter, fallback naar defaults.");
+      loadDefaultCatalogs();
+      return;
+    }
+
+    const config = JSON.parse(decodeURIComponent(configParam));
+    console.debug("?? Gedeodeerde config string:", decodeURIComponent(configParam));
+    console.debug("? Parsed config object:", config);
+
+    if (config.rpdbkey) setRpdbkey(config.rpdbkey);
+    if (config.mdblistkey) setMdblistkey(config.mdblistkey);
+    if (config.mdblistSelectedLists && Array.isArray(config.mdblistSelectedLists)) {
+      setMdblistSelectedLists(config.mdblistSelectedLists);
+    }
+    if (config.includeAdult) setIncludeAdult(config.includeAdult === "true");
+    if (config.language) setLanguage(config.language);
+
+    if (config.catalogs) {
+      const catalogsWithNames = config.catalogs.map((catalog: CatalogConfig) => {
+        const existingCatalog = allCatalogs.find(
+          (c) => c.id === catalog.id && c.type === catalog.type
+        );
+        return {
+          ...catalog,
+          name: existingCatalog?.name || catalog.id,
+          enabled: catalog.enabled || false,
+        };
+      });
+
+      setCatalogs(catalogsWithNames);
+
+      const selectedStreamingServices = new Set(
+        catalogsWithNames
+          .filter((catalog) => catalog.id.startsWith("streaming."))
+          .map((catalog) => catalog.id.split(".")[1])
+      );
+
+      setStreaming(Array.from(selectedStreamingServices));
+    } else {
+      loadDefaultCatalogs();
+    }
+
+    if (config.searchEnabled) setSearchEnabled(config.searchEnabled === "true");
+  } catch (error) {
+    console.error("Error loading config from URL:", error);
+    loadDefaultCatalogs();
+  }
+}
+
+/**
+ * Provider component.
+ */
+export function ConfigProvider({ children }: { children: ReactNode }) {
+  // Gebruik custom localStorage hook voor persistente states
+  const [rpdbkey, setRpdbkey] = useLocalStorageState<string>("rpdbkey", "");
+  const [mdblistkey, setMdblistkey] = useLocalStorageState<string>("mdblistkey", "");
+  const [mdblistSelectedLists, setMdblistSelectedLists] = useLocalStorageState<number[]>(
+    "mdblistSelectedLists",
+    []
+  );
+  const [mdblistListsState, _setMdblistLists] = useState<ListItem[]>([]);
+
   const [includeAdult, setIncludeAdult] = useState(false);
   const [provideImdbId, setProvideImdbId] = useState(false);
   const [tmdbPrefix, setTmdbPrefix] = useState(false);
@@ -127,11 +238,11 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState("en-US");
   const [sessionId, setSessionId] = useState("");
   const [streaming, setStreaming] = useState<string[]>([]);
+
   const [catalogs, setCatalogs] = useState<CatalogConfig[]>([]);
   const [ageRating, setAgeRating] = useState<string | undefined>(undefined);
-  const [searchEnabled, setSearchEnabled] = useState<boolean>(true);
+  const [searchEnabled, setSearchEnabled] = useState(true);
 
-  // ✅ Zorgt voor unieke lijsten per id-mt combinatie
   const setMdblistLists = (lists: ListItem[]) => {
     const uniqueLists = Array.from(
       new Map(lists.map((item) => [`${item.id}-${item.mediatype}`, item])).values()
@@ -148,102 +259,25 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     setCatalogs(defaultCatalogs);
   };
 
-  const loadConfigFromUrl = () => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const configParam = urlParams.get("config");
-
-      if (!configParam) {
-        console.warn("Geen JSON in queryparameter, fallback naar defaults.");
-        loadDefaultCatalogs();
-        return;
-      }
-
-      const config = JSON.parse(decodeURIComponent(configParam));
-      console.debug("?? Gedeodeerde config string:", decodeURIComponent(configParam));
-      console.debug("? Parsed config object:", config);
-
-      if (config.rpdbkey) setRpdbkey(config.rpdbkey);
-      if (config.mdblistkey) setMdblistkey(config.mdblistkey);
-      if (config.mdblistSelectedLists && Array.isArray(config.mdblistSelectedLists)) {
-        setMdblistSelectedLists(config.mdblistSelectedLists);
-      }
-      if (config.includeAdult) setIncludeAdult(config.includeAdult === "true");
-      if (config.language) setLanguage(config.language);
-
-      if (config.catalogs) {
-        const catalogsWithNames = config.catalogs.map((catalog) => {
-          const existingCatalog = allCatalogs.find(
-            (c) => c.id === catalog.id && c.type === catalog.type
-          );
-          return {
-            ...catalog,
-            name: existingCatalog?.name || catalog.id,
-            enabled: catalog.enabled || false,
-          };
-        });
-
-        setCatalogs(catalogsWithNames);
-
-        const selectedStreamingServices = new Set(
-          catalogsWithNames
-            .filter((catalog) => catalog.id.startsWith("streaming."))
-            .map((catalog) => catalog.id.split(".")[1])
-        );
-
-        setStreaming(Array.from(selectedStreamingServices) as string[]);
-      } else {
-        loadDefaultCatalogs();
-      }
-
-      if (config.searchEnabled)
-        setSearchEnabled(config.searchEnabled === "true");
-    } catch (error) {
-      console.error("Error loading config from URL:", error);
-      loadDefaultCatalogs();
-    }
-  };
-
   useEffect(() => {
-    const storedToken = localStorage.getItem("mdblistkey");
-    if (storedToken && !mdblistkey) {
-      console.debug("? Loaded token from localStorage:", storedToken);
-      setMdblistkey(storedToken);
-    }
-
-    const storedLists = localStorage.getItem("mdblistSelectedLists");
-    if (storedLists && !mdblistSelectedLists.length) {
-      try {
-        setMdblistSelectedLists(JSON.parse(storedLists));
-      } catch {
-        // ignore parse error
-      }
-    }
+    loadConfigFromUrl(
+      setRpdbkey,
+      setMdblistkey,
+      setMdblistSelectedLists,
+      setIncludeAdult,
+      setLanguage,
+      setCatalogs,
+      setStreaming,
+      setSearchEnabled,
+      loadDefaultCatalogs,
+      allCatalogs
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (mdblistkey) {
-      localStorage.setItem("mdblistkey", mdblistkey);
-    } else {
-      localStorage.removeItem("mdblistkey");
-    }
-  }, [mdblistkey]);
-
-  useEffect(() => {
-    if (mdblistSelectedLists.length > 0) {
-      localStorage.setItem("mdblistSelectedLists", JSON.stringify(mdblistSelectedLists));
-    } else {
-      localStorage.removeItem("mdblistSelectedLists");
-    }
-  }, [mdblistSelectedLists]);
-
-  useEffect(() => {
-    loadConfigFromUrl();
-  }, []);
-
-  useEffect(() => {
-    setCatalogs((current) =>
-      filterAndMapMdblistCatalogs(current, mdblistListsState, mdblistSelectedLists)
+    setCatalogs((currentCatalogs) =>
+      filterAndMapMdblistCatalogs(currentCatalogs, mdblistListsState, mdblistSelectedLists)
     );
   }, [mdblistListsState, mdblistSelectedLists]);
 
@@ -276,10 +310,33 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     setCatalogs,
     setAgeRating,
     setSearchEnabled,
-    loadConfigFromUrl,
+    loadConfigFromUrl: () =>
+      loadConfigFromUrl(
+        setRpdbkey,
+        setMdblistkey,
+        setMdblistSelectedLists,
+        setIncludeAdult,
+        setLanguage,
+        setCatalogs,
+        setStreaming,
+        setSearchEnabled,
+        loadDefaultCatalogs,
+        allCatalogs
+      ),
   };
 
-  return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;
+  return (
+    <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>
+  );
 }
 
-export const useConfig = () => useContext(ConfigContext);
+/**
+ * Hook om de ConfigContext te gebruiken.
+ */
+export function useConfig(): ConfigContextType {
+  const context = useContext(ConfigContext);
+  if (!context) {
+    throw new Error("useConfig moet binnen ConfigProvider worden gebruikt");
+  }
+  return context;
+}
