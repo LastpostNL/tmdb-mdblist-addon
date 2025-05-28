@@ -15,13 +15,18 @@ interface ListItem {
   private: boolean;
 }
 
+interface SelectedMDBList {
+  id: number;
+  showInHome: boolean;
+}
+
 export default function MDBList() {
   const {
     mdblistkey,
     setMdblistkey,
     mdblistSelectedLists,
     setMdblistSelectedLists,
-    setMdblistLists,      // toegevoegd hier
+    setMdblistLists,
   } = useConfig();
 
   const [inputToken, setInputToken] = useState(mdblistkey || "");
@@ -48,7 +53,7 @@ export default function MDBList() {
       setError((err as Error).message);
       setIsValid(false);
       setLists([]);
-      setMdblistLists([]);   // resetten bij error
+      setMdblistLists([]);
     } finally {
       setLoadingLists(false);
     }
@@ -59,10 +64,10 @@ export default function MDBList() {
       fetchLists(mdblistkey);
     } else {
       setLists([]);
-      setMdblistLists([]);    // ook leegmaken als geen token
+      setMdblistLists([]);
       setIsValid(null);
     }
-}, [mdblistkey]);
+  }, [mdblistkey]);
 
   const handleSaveToken = () => {
     const trimmed = inputToken.trim();
@@ -76,17 +81,36 @@ export default function MDBList() {
   const handleLogout = () => {
     setMdblistkey("");
     setMdblistSelectedLists([]);
-    setMdblistLists([]);   // ook context resetten bij uitloggen
+    setMdblistLists([]);
     setInputToken("");
     setLists([]);
     setIsValid(null);
   };
 
+  // Helper: check of lijst geselecteerd is (return object of undefined)
+  const findSelected = (id: number): SelectedMDBList | undefined =>
+    mdblistSelectedLists.find((item) => item.id === id);
+
+  // Toggle selectie van lijst (toevoegen/verwijderen)
   const toggleListSelection = (id: number) => {
+    setMdblistSelectedLists((prev) => {
+      const exists = prev.find((item) => item.id === id);
+      if (exists) {
+        // verwijderen
+        return prev.filter((item) => item.id !== id);
+      } else {
+        // toevoegen met default showInHome false
+        return [...prev, { id, showInHome: false }];
+      }
+    });
+  };
+
+  // Toggle showInHome per lijst
+  const toggleShowInHome = (id: number) => {
     setMdblistSelectedLists((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : [...prev, id]
+      prev.map((item) =>
+        item.id === id ? { ...item, showInHome: !item.showInHome } : item
+      )
     );
   };
 
@@ -113,22 +137,39 @@ export default function MDBList() {
               <div>No lists have been found.</div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-auto border rounded p-2">
-                {lists.map((list) => (
-                  <label
-                    key={list.id}
-                    className="flex items-center space-x-2 cursor-pointer"
-                    title={list.description || ""}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={mdblistSelectedLists.includes(list.id)}
-                      onChange={() => toggleListSelection(list.id)}
-                    />
-                    <span>
-                      [{list.mediatype}] {list.name} {list.private ? "(Private)" : ""}
-                    </span>
-                  </label>
-                ))}
+                {lists.map((list) => {
+                  const selected = findSelected(list.id);
+                  return (
+                    <div
+                      key={list.id}
+                      className="flex items-center space-x-4 cursor-pointer"
+                      title={list.description || ""}
+                    >
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={!!selected}
+                          onChange={() => toggleListSelection(list.id)}
+                        />
+                        <span>
+                          [{list.mediatype}] {list.name}{" "}
+                          {list.private ? "(Private)" : ""}
+                        </span>
+                      </label>
+
+                      {selected && (
+                        <label className="flex items-center space-x-1">
+                          <input
+                            type="checkbox"
+                            checked={selected.showInHome}
+                            onChange={() => toggleShowInHome(list.id)}
+                          />
+                          <span>Show in Home</span>
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
