@@ -66,43 +66,53 @@ const allCatalogs = [
 ];
 
 function filterAndMapMdblistCatalogs(
-  baseCatalogs: CatalogConfig[],
+  currentCatalogs: CatalogConfig[],
   mdblistLists: ListItem[],
   mdblistSelectedLists: number[]
 ): CatalogConfig[] {
-  const filteredBase = baseCatalogs.filter((c) => !c.id.startsWith("mdblist."));
+  const nonMdblistCatalogs = currentCatalogs.filter(
+    (c) => !c.id.startsWith("mdblist.")
+  );
 
   const mdblistCatalogs = mdblistLists
     .filter((list) => mdblistSelectedLists.includes(list.id))
     .flatMap((list) => {
-      const catalogBase = {
+      const existingMovie = currentCatalogs.find(
+        (c) => c.id === `mdblist.movie.${list.id}`
+      );
+      const existingSeries = currentCatalogs.find(
+        (c) => c.id === `mdblist.series.${list.id}`
+      );
+
+      const base = {
         name: list.name,
-        showInHome: false,
         enabled: true,
       };
 
-      const catalogs = [];
+      const result: CatalogConfig[] = [];
 
       if (list.mediatype === "movie") {
-        catalogs.push({
+        result.push({
           id: `mdblist.movie.${list.id}`,
           type: "movie",
-          ...catalogBase,
+          showInHome: existingMovie?.showInHome ?? false,
+          ...base,
         });
       }
 
       if (list.mediatype === "show") {
-        catalogs.push({
+        result.push({
           id: `mdblist.series.${list.id}`,
           type: "series",
-          ...catalogBase,
+          showInHome: existingSeries?.showInHome ?? false,
+          ...base,
         });
       }
 
-      return catalogs;
+      return result;
     });
 
-  return [...filteredBase, ...mdblistCatalogs];
+  return [...nonMdblistCatalogs, ...mdblistCatalogs];
 }
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
