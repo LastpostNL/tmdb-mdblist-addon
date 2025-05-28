@@ -65,9 +65,6 @@ const allCatalogs = [
   ...Object.values(streamingCatalogs).flat(),
 ];
 
-/**
- * Filtert en voegt MDBList catalogi toe, vermijdt duplicaten.
- */
 function filterAndMapMdblistCatalogs(
   currentCatalogs: CatalogConfig[],
   mdblistLists: ListItem[],
@@ -118,9 +115,6 @@ function filterAndMapMdblistCatalogs(
   return [...nonMdblistCatalogs, ...mdblistCatalogs];
 }
 
-/**
- * Custom hook voor state met localStorage synchronisatie.
- */
 function useLocalStorageState<T>(
   key: string,
   defaultValue: T
@@ -149,9 +143,6 @@ function useLocalStorageState<T>(
   return [state, setState];
 }
 
-/**
- * Laadt config uit URL (querystring).
- */
 function loadConfigFromUrl(
   setRpdbkey: (key: string) => void,
   setMdblistkey: (key: string) => void,
@@ -218,11 +209,7 @@ function loadConfigFromUrl(
   }
 }
 
-/**
- * Provider component.
- */
 export function ConfigProvider({ children }: { children: ReactNode }) {
-  // Gebruik custom localStorage hook voor persistente states
   const [rpdbkey, setRpdbkey] = useLocalStorageState<string>("rpdbkey", "");
   const [mdblistkey, setMdblistkey] = useLocalStorageState<string>("mdblistkey", "");
   const [mdblistSelectedLists, setMdblistSelectedLists] = useLocalStorageState<number[]>(
@@ -272,7 +259,6 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       loadDefaultCatalogs,
       allCatalogs
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -330,9 +316,6 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Hook om de ConfigContext te gebruiken.
- */
 export function useConfig(): ConfigContextType {
   const context = useContext(ConfigContext);
   if (!context) {
