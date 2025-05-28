@@ -27,6 +27,8 @@ export default function MDBList() {
     mdblistSelectedLists,
     setMdblistSelectedLists,
     setMdblistLists,
+    catalogs,
+    setCatalogs,
   } = useConfig();
 
   const [inputToken, setInputToken] = useState(mdblistkey || "");
@@ -113,6 +115,35 @@ export default function MDBList() {
       )
     );
   };
+
+  // **Belangrijk:** Synchroniseer mdblistSelectedLists naar de centrale config.catalogs
+  useEffect(() => {
+    if (!setCatalogs) return; // check
+
+    // Filter bestaande catalogi zonder mdblist entries
+    const nonMDBListCatalogs = catalogs.filter(
+      (cat) => !cat.id.startsWith("mdblist_")
+    );
+
+    // Maak nieuwe mdblist catalog entries van de selectie
+    const mdblistCatalogs = mdblistSelectedLists.map((item) => {
+      // Zoek de lijst naam voor een nette titel
+      const listData = lists.find((l) => l.id === item.id);
+      return {
+        id: `mdblist_${item.id}`,
+        type: "catalog",
+        name: listData ? `MDBList: ${listData.name}` : `MDBList ${item.id}`,
+        extra: {
+          mdblist_id: item.id,
+          showInHome: item.showInHome,
+          mediatype: listData?.mediatype || "movie",
+        },
+      };
+    });
+
+    // Update centrale catalogs in config
+    setCatalogs([...nonMDBListCatalogs, ...mdblistCatalogs]);
+  }, [mdblistSelectedLists, catalogs, lists, setCatalogs]);
 
   return (
     <div className="space-y-6">
