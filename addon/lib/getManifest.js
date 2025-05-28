@@ -190,7 +190,7 @@ async function getManifest(config) {
           name: c.name,
           pageSize: 20,
           extra: [{ name: "skip" }],
-          showInHome: c.showInHome || false
+          showInHome: typeof c.showInHome === 'boolean' ? c.showInHome : false
         };
       }
 
