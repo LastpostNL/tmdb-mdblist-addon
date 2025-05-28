@@ -75,19 +75,17 @@ const Catalogs = () => {
 
   const sensors = useSensors(mouseSensor, touchSensor);
 
-  // Voeg alle basiscatalogi toe en geselecteerde MDBList catalogi
   useEffect(() => {
-    // Maak catalog entries voor geselecteerde MDBList-lijsten
+    // Maak catalog entries voor geselecteerde MDBList-lijsten (zonder enabled/showInHome)
     const mdblistCatalogs = mdblistLists
       .filter(list => mdblistSelectedLists.includes(list.id))
       .map(list => ({
         id: `mdblist.${list.id}`,
         name: list.name,
         type: list.mediatype === "movie" ? "movie" : "series",
-        enabled: false,
-        showInHome: false,
       }));
 
+    // Alle catalogi samenvoegen
     const allCatalogs = [
       ...baseCatalogs,
       ...(sessionId ? authCatalogs : []),
@@ -98,27 +96,36 @@ const Catalogs = () => {
     ];
 
     setCatalogs((prev) => {
-      const existingIds = new Set(prev.map((c) => `${c.id}-${c.type}`));
-      const newCatalogs = allCatalogs.filter(
-        (c) => !existingIds.has(`${c.id}-${c.type}`)
+      // Map bestaande catalogi voor snelle lookup
+      const existingMap = new Map(prev.map(c => [`${c.id}-${c.type}`, c]));
+
+      // Filter oude catalogi weg die niet meer in allCatalogs voorkomen
+      const filteredPrev = prev.filter(c =>
+        allCatalogs.some(ac => ac.id === c.id && ac.type === c.type)
       );
 
-      return [
-        ...prev,
-        ...newCatalogs.map((c) => ({ 
-          id: c.id, 
-          type: c.type, 
-          name: c.name, 
+      // Nieuwe catalogi toevoegen, met default enabled/showInHome false
+      const newCatalogs = allCatalogs
+        .filter(c => !existingMap.has(`${c.id}-${c.type}`))
+        .map(c => ({
+          ...c,
           enabled: false,
-          showInHome: false 
-        })),
+          showInHome: false,
+        }));
+
+      // Combineer gefilterde oude catalogi en nieuwe catalogi
+      // Dit behoudt ook de enabled/showInHome van bestaande catalogi
+      return [
+        ...filteredPrev,
+        ...newCatalogs,
       ];
     });
   }, [sessionId, streaming, mdblistLists, mdblistSelectedLists, setCatalogs]);
 
-  // Filter alleen de ingeschakelde catalogi om te tonen
+  // Alleen ingeschakelde catalogi tonen
   const enabledCatalogs = catalogs.filter(c => c.enabled);
 
+  // Maak snel een object met configuratie per catalogus (voor de kaarten)
   const catalogConfigs = enabledCatalogs.reduce((acc, config) => {
     const key = `${config.id}-${config.type}`;
     acc[key] = {
