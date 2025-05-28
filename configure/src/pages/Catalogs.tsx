@@ -38,7 +38,7 @@ const CatalogColumn = ({
             id={`${catalog.id}-${catalog.type}`}
             catalog={catalog}
             name={catalog.name} 
-            config={catalogConfigs[`${catalog.id}-${catalog.type}`]}
+            config={catalogConfigs[`${catalog.id}-${catalog.type}`] || {enabled: false, showInHome: false}}
             onChange={(enabled, showInHome) => 
               onCatalogChange(catalog.id, catalog.type, enabled, showInHome)
             }
@@ -76,7 +76,6 @@ const Catalogs = () => {
   const sensors = useSensors(mouseSensor, touchSensor);
 
   useEffect(() => {
-    // Maak catalog entries voor geselecteerde MDBList-lijsten (zonder enabled/showInHome)
     const mdblistCatalogs = mdblistLists
       .filter(list => mdblistSelectedLists.includes(list.id))
       .map(list => ({
@@ -85,7 +84,6 @@ const Catalogs = () => {
         type: list.mediatype === "movie" ? "movie" : "series",
       }));
 
-    // Alle catalogi samenvoegen
     const allCatalogs = [
       ...baseCatalogs,
       ...(sessionId ? authCatalogs : []),
@@ -96,15 +94,14 @@ const Catalogs = () => {
     ];
 
     setCatalogs((prev) => {
-      // Map bestaande catalogi voor snelle lookup
       const existingMap = new Map(prev.map(c => [`${c.id}-${c.type}`, c]));
 
-      // Filter oude catalogi weg die niet meer in allCatalogs voorkomen
+      // Filter catalogi die nog relevant zijn
       const filteredPrev = prev.filter(c =>
         allCatalogs.some(ac => ac.id === c.id && ac.type === c.type)
       );
 
-      // Nieuwe catalogi toevoegen, met default enabled/showInHome false
+      // Nieuwe catalogi toevoegen met standaard enabled/showInHome false
       const newCatalogs = allCatalogs
         .filter(c => !existingMap.has(`${c.id}-${c.type}`))
         .map(c => ({
@@ -113,8 +110,6 @@ const Catalogs = () => {
           showInHome: false,
         }));
 
-      // Combineer gefilterde oude catalogi en nieuwe catalogi
-      // Dit behoudt ook de enabled/showInHome van bestaande catalogi
       return [
         ...filteredPrev,
         ...newCatalogs,
@@ -122,21 +117,22 @@ const Catalogs = () => {
     });
   }, [sessionId, streaming, mdblistLists, mdblistSelectedLists, setCatalogs]);
 
-  // Alleen ingeschakelde catalogi tonen
-  const enabledCatalogs = catalogs.filter(c => c.enabled);
+  // **Hier: geen filter op enabled** want je moet ook uitgeschakelde kunnen aanvinken
+  const allCatalogs = catalogs;
 
-  // Maak snel een object met configuratie per catalogus (voor de kaarten)
-  const catalogConfigs = enabledCatalogs.reduce((acc, config) => {
+  // Map config per catalogus voor checkboxes, standaard false als niet aanwezig
+  const catalogConfigs = allCatalogs.reduce((acc, config) => {
     const key = `${config.id}-${config.type}`;
     acc[key] = {
-      enabled: config.enabled,
-      showInHome: config.showInHome,
+      enabled: config.enabled ?? false,
+      showInHome: config.showInHome ?? false,
     };
     return acc;
   }, {});
 
   const handleCatalogChange = (catalogId, type, enabled, showInHome) => {
     setCatalogs((prev) => {
+      // Map door de catalogi, wijzig degene die matcht
       return prev.map((c) =>
         c.id === catalogId && c.type === type
           ? { ...c, enabled: enabled === true, showInHome }
@@ -168,7 +164,7 @@ const Catalogs = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CatalogColumn
           title="Movies"
-          catalogs={enabledCatalogs.filter((c) => c.type === "movie")}
+          catalogs={allCatalogs.filter((c) => c.type === "movie")}
           catalogConfigs={catalogConfigs}
           onCatalogChange={handleCatalogChange}
           onDragEnd={handleDragEnd}
@@ -176,7 +172,7 @@ const Catalogs = () => {
         />
         <CatalogColumn
           title="TV Shows"
-          catalogs={enabledCatalogs.filter((c) => c.type === "series")}
+          catalogs={allCatalogs.filter((c) => c.type === "series")}
           catalogConfigs={catalogConfigs}
           onCatalogChange={handleCatalogChange}
           onDragEnd={handleDragEnd}
