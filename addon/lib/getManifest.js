@@ -222,10 +222,10 @@ async function getManifest(config) {
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     catalogs,
-    behaviorHints: {
-      configurationRequired: true,
-      configurable: true
-    },
+behaviorHints: {
+  configurationRequired: false,
+  configurable: true
+},
     idPrefixes: provideImdbId ? ["tt"] : [],
     background: `${process.env.HOST_NAME}/background.jpg`,
     logo: `${process.env.HOST_NAME}/logo.png`
