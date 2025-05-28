@@ -234,8 +234,8 @@ behaviorHints: {
 
 function getDefaultCatalogs() {
   return [
-    { id: "tmdb.popular", type: "movie", enabled: true, showInHome: true },
-    { id: "tmdb.popular", type: "series", enabled: true, showInHome: true }
+    { id: "tmdb.top", type: "movie", enabled: true, showInHome: true },
+    { id: "tmdb.top", type: "series", enabled: true, showInHome: true }
   ];
 }
 
