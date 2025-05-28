@@ -118,7 +118,7 @@ config.catalogs = config.catalogs.map(c => {
         id: String(listId),
         type,
         name: `MDBList - ${listInfoById[listId] || listId}`,
-        home: c.showInHome === true
+        showInHome: c.showInHome === true
       };
     }
   }
