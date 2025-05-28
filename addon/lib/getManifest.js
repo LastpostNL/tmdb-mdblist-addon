@@ -108,21 +108,22 @@ async function getManifest(config) {
   // Zet mdblist catalog IDs terug naar alleen numeriek id, met type en naam erbij
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     const listInfoById = Object.fromEntries(config.mdblistLists.map(l => [String(l.id), l.name]));
-    config.catalogs = config.catalogs.map(c => {
-      if (c.id.startsWith("mdblist.")) {
-        const parts = c.id.split(".");
-        if (parts.length === 3) {
-          const [, type, listId] = parts;
-          return {
-            ...c,
-            id: String(listId),
-            type,
-            name: `MDBList - ${listInfoById[listId] || listId}`
-          };
-        }
-      }
-      return c;
-    });
+config.catalogs = config.catalogs.map(c => {
+  if (c.id.startsWith("mdblist.")) {
+    const parts = c.id.split(".");
+    if (parts.length === 3) {
+      const [, type, listId] = parts;
+      return {
+        ...c,
+        id: String(listId),
+        type,
+        name: `MDBList - ${listInfoById[listId] || listId}`,
+        home: c.showInHome === true
+      };
+    }
+  }
+  return c;
+});
   }
 
   const translatedCatalogs = loadTranslations(language);
