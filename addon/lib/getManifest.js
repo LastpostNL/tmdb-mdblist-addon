@@ -97,31 +97,15 @@ function getOptionsForCatalog(catalogDef, type, showInHome, { years, genres_movi
   }
 }
 
-async function getMDBListItems(listId, apiKey) {
-  try {
-    const res = await fetch(`https://api.mdblist.com/lists/${listId}/items?apikey=${apiKey}`);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch list items for ${listId}: ${res.statusText}`);
-    }
-    const data = await res.json();
-    return {
-      hasMovies: Array.isArray(data.movies) && data.movies.length > 0,
-      hasShows: Array.isArray(data.shows) && data.shows.length > 0
-    };
-  } catch {
-    return { hasMovies: false, hasShows: false };
-  }
-}
-
 async function getManifest(config) {
+  // Zorg dat config.catalogs altijd een array is, default fallback
   config.catalogs = (config.catalogs || getDefaultCatalogs()).map(c => ({ ...c, enabled: c.enabled !== false }));
 
   const language = config.language || DEFAULT_LANGUAGE;
   const tmdbPrefix = config.tmdbPrefix === "true";
   const provideImdbId = config.provideImdbId === "true";
-  const sessionId = config.sessionId;
 
-  // Normalize MDBList catalogs: mdblist.<type>.<listId> => listId string only
+  // Zet mdblist catalog IDs terug naar alleen numeriek id, met type en naam erbij
   if (Array.isArray(config.catalogs) && Array.isArray(config.mdblistLists)) {
     const listInfoById = Object.fromEntries(config.mdblistLists.map(l => [String(l.id), l.name]));
     config.catalogs = config.catalogs.map(c => {
@@ -150,13 +134,12 @@ async function getManifest(config) {
 
   const options = { years, genres_movie, genres_series, filterLanguages };
 
-  if (config.mdblistkey) {
-    try {
-      const mdblistLists = await getMDBLists(config.mdblistkey);
-      for (const list of mdblistLists) {
-        const { hasMovies, hasShows } = await getMDBListItems(list.id, config.mdblistkey);
-
-        if (hasMovies && !config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
+  // Voeg MDBList catalogi toe, gebaseerd op mdblistLists + mediatype uit list object
+  if (config.mdblistkey && Array.isArray(config.mdblistLists)) {
+    for (const list of config.mdblistLists) {
+      // Gebruik mediatype van lijst zelf, geen aparte call voor items
+      if (list.mediatype === "movie" || list.mediatype === "both") {
+        if (!config.catalogs.find(c => c.id === String(list.id) && c.type === "movie")) {
           config.catalogs.push({
             id: String(list.id),
             type: "movie",
@@ -164,8 +147,11 @@ async function getManifest(config) {
             showInHome: false,
             enabled: false
           });
+          console.log(`[MDBList] Added catalog: mdblist.movie.${list.id} (${list.name})`);
         }
-        if (hasShows && !config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
+      }
+      if (list.mediatype === "series" || list.mediatype === "both") {
+        if (!config.catalogs.find(c => c.id === String(list.id) && c.type === "series")) {
           config.catalogs.push({
             id: String(list.id),
             type: "series",
@@ -173,16 +159,17 @@ async function getManifest(config) {
             showInHome: false,
             enabled: false
           });
+          console.log(`[MDBList] Added catalog: mdblist.series.${list.id} (${list.name})`);
         }
       }
-    } catch (err) {
-      console.error("❌ Failed to fetch MDBList catalogs:", err);
     }
   }
 
+  // Filter alleen ingeschakelde catalogi
   const catalogs = config.catalogs
     .filter(c => c.enabled !== false)
     .map(c => {
+      // MDBList catalogen: simpele objecten met skip extra
       if (config.mdblistLists && config.mdblistLists.find(l => String(l.id) === c.id)) {
         return {
           id: c.id,
@@ -194,6 +181,7 @@ async function getManifest(config) {
         };
       }
 
+      // TMDB catalogi: volgens catalogType config
       const def = getCatalogDefinition(c.id);
       if (!def) return null;
 
@@ -202,6 +190,7 @@ async function getManifest(config) {
     })
     .filter(Boolean);
 
+  // Voeg TMDB search catalogi toe als ingeschakeld
   if (config.searchEnabled !== "false") {
     ["movie", "series"].forEach(type => {
       catalogs.push({
@@ -222,10 +211,10 @@ async function getManifest(config) {
     resources: ["catalog", "meta"],
     types: ["movie", "series"],
     catalogs,
-behaviorHints: {
-  configurationRequired: false,
-  configurable: true
-},
+    behaviorHints: {
+      configurationRequired: false,
+      configurable: true
+    },
     idPrefixes: provideImdbId ? ["tt"] : [],
     background: `${process.env.HOST_NAME}/background.jpg`,
     logo: `${process.env.HOST_NAME}/logo.png`
