@@ -63,6 +63,24 @@ const buildMovieResponse = async (res, type, language, tmdbId, rpdbkey) => {
 
   const imdbRating = imdbRatingRaw || res.vote_average?.toFixed(1) || "N/A";
 
+  // Parse trailers / playable trailer streams (richer structuur)
+  const parsedTrailers = Utils.parseTrailers(res.videos);
+  const parsedTrailerStreams = Utils.parseTrailerStream(res.videos);
+
+  // Maak een 'playableTrailers' array van stream-achtige objecten (optioneel; sommige clients
+  // prefereren echte stream-objects). Deze kun je ook via een /stream endpoint aanbieden.
+  const playableTrailers = (parsedTrailerStreams || []).map(t => ({
+    id: t.id,
+    title: t.title,
+    url: t.url,
+    isRemote: true,
+    info: {
+      audio: "original",
+      video: "sd",
+    },
+    tags: ["trailer"]
+  }));
+
   return {
     imdb_id: res.imdb_id,
     country: Utils.parseCoutry(res.production_countries),
@@ -76,14 +94,18 @@ const buildMovieResponse = async (res, type, language, tmdbId, rpdbkey) => {
     type,
     writer: Utils.parseWriter(res.credits),
     year: res.release_date ? res.release_date.substr(0, 4) : "",
-    trailers: Utils.parseTrailers(res.videos),
+    // Rich trailers (id, name, url, site, source)
+    trailers: parsedTrailers,
+    // 'trailerStreams' levert per bestaande code nog steeds array van items met ytId/url
+    trailerStreams: parsedTrailerStreams,
+    // Extra veld met volledig speelbare trailer-objects (optioneel)
+    playableTrailers,
     background: `https://image.tmdb.org/t/p/original${res.backdrop_path}`,
     poster,
     runtime: Utils.parseRunTime(res.runtime),
     id: `tmdb:${tmdbId}`,
     genres: Utils.parseGenres(res.genres),
     releaseInfo: res.release_date ? res.release_date.substr(0, 4) : "",
-    trailerStreams: Utils.parseTrailerStream(res.videos),
     links: buildLinks(imdbRating, res.imdb_id, res.title, type, res.genres, res.credits, language),
     behaviorHints: {
       defaultVideoId: res.imdb_id ? res.imdb_id : `tmdb:${res.id}`,
@@ -125,6 +147,20 @@ const buildTvResponse = async (res, type, language, tmdbId, rpdbkey, config) => 
 
   const imdbRating = imdbRatingRaw || res.vote_average?.toFixed(1) || "N/A";
 
+  const parsedTrailers = Utils.parseTrailers(res.videos);
+  const parsedTrailerStreams = Utils.parseTrailerStream(res.videos);
+  const playableTrailers = (parsedTrailerStreams || []).map(t => ({
+    id: t.id,
+    title: t.title,
+    url: t.url,
+    isRemote: true,
+    info: {
+      audio: "original",
+      video: "sd",
+    },
+    tags: ["trailer"]
+  }));
+
   return {
     country: Utils.parseCoutry(res.production_countries),
     description: res.overview,
@@ -146,8 +182,9 @@ const buildTvResponse = async (res, type, language, tmdbId, rpdbkey, config) => 
     releaseInfo: Utils.parseYear(res.status, res.first_air_date, res.last_air_date),
     videos: episodes || [],
     links: buildLinks(imdbRating, res.external_ids.imdb_id, res.name, type, res.genres, res.credits, language),
-    trailers: Utils.parseTrailers(res.videos),
-    trailerStreams: Utils.parseTrailerStream(res.videos),
+    trailers: parsedTrailers,
+    trailerStreams: parsedTrailerStreams,
+    playableTrailers,
     behaviorHints: {
       defaultVideoId: null,
       hasScheduledVideos: true
