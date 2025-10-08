@@ -37,26 +37,45 @@ function parseSlug(type, title, imdb_id) {
     }`;
 }
 
+// Verbeterde trailer-parsers: geven nu volledige YouTube-URL's en extra velden terug
 function parseTrailers(videos) {
+  if (!videos || !Array.isArray(videos.results)) return [];
+
   return videos.results
-    .filter((el) => el.site === "YouTube")
-    .filter((el) => el.type === "Trailer")
+    .filter((el) => el.site && el.site.toLowerCase() === "youtube")
+    .filter((el) => el.type && el.type.toLowerCase() === "trailer")
     .map((el) => {
+      // Stremio clients kijken vaak naar id/source/url/site/name
       return {
-        source: `${el.key}`,
-        type: `${el.type}`,
+        id: `youtube:${el.key}`,             // unieke id voor de trailer
+        name: el.name || "Trailer",
+        type: el.type || "Trailer",
+        site: el.site || "YouTube",
+        source: el.key,                      // youtube key (legacy compat)
+        url: `https://www.youtube.com/watch?v=${el.key}`, // volledige url
       };
     });
 }
 
+/*
+  trailerStreams: gebruikt door de addon intern als 'playable' representatie van trailers.
+  Geeft voldoende data voor zowel metadata-weergave als voor het bouwen van een stream-object
+  als je later een /stream endpoint wilt toevoegen.
+*/
 function parseTrailerStream(videos) {
+  if (!videos || !Array.isArray(videos.results)) return [];
+
   return videos.results
-    .filter((el) => el.site === "YouTube")
-    .filter((el) => el.type === "Trailer")
+    .filter((el) => el.site && el.site.toLowerCase() === "youtube")
+    .filter((el) => el.type && el.type.toLowerCase() === "trailer")
     .map((el) => {
       return {
-        title: `${el.name}`,
-        ytId: `${el.key}`,
+        id: `youtube:${el.key}`,
+        title: el.name || "Trailer",
+        ytId: el.key,
+        url: `https://www.youtube.com/watch?v=${el.key}`,
+        source: "YouTube",
+        isRemote: true, // indicatie dat dit een externe stream is
       };
     });
 }
